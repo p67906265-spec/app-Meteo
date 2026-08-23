@@ -1,5 +1,7 @@
 package com.quaderno.appmeteo.data
 
+import com.quaderno.appmeteo.WeatherScene
+
 object WeatherCode {
     fun description(code: Int): String = when (code) {
         0 -> "Sereno"
@@ -32,5 +34,15 @@ object WeatherCode {
         80, 81, 82 -> "🌦️"
         95, 96, 99 -> "⛈️"
         else -> "🌡️"
+    }
+
+    fun scene(code: Int): WeatherScene = when (code) {
+        0, 1 -> WeatherScene.SUN
+        2, 3 -> WeatherScene.CLOUDS
+        45, 48 -> WeatherScene.FOG
+        51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82 -> WeatherScene.RAIN
+        71, 73, 75, 77, 85, 86 -> WeatherScene.SNOW
+        95, 96, 99 -> WeatherScene.STORM
+        else -> WeatherScene.CLOUDS
     }
 }

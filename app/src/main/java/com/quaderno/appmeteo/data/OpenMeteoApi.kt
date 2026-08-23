@@ -9,9 +9,9 @@ interface OpenMeteoApi {
     suspend fun getForecast(
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
-        @Query("current_weather") currentWeather: Boolean = true,
-        @Query("hourly") hourly: String = "temperature_2m,weathercode",
-        @Query("daily") daily: String = "weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+        @Query("current") current: String = "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,weather_code,wind_speed_10m,is_day",
+        @Query("hourly") hourly: String = "temperature_2m,weather_code",
+        @Query("daily") daily: String = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
         @Query("timezone") timezone: String = "auto",
         @Query("forecast_days") forecastDays: Int = 7
     ): ForecastResponse
