@@ -36,6 +36,7 @@ import com.quaderno.appmeteo.data.Daily
 import com.quaderno.appmeteo.data.GeoResult
 import com.quaderno.appmeteo.data.WeatherCode
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -125,8 +126,14 @@ fun RadarScreen() {
                 WebView(context).apply {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
+                    settings.loadWithOverviewMode = true
+                    settings.useWideViewPort = true
+                    settings.builtInZoomControls = true
+                    settings.displayZoomControls = false
+                    settings.setSupportZoom(true)
+                    settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     webViewClient = WebViewClient()
-                    loadUrl("file:///android_asset/radar.html")
+                    loadUrl("https://www.rainviewer.com/map.html")
                 }
             }
         )
@@ -252,12 +259,28 @@ fun WeatherContent(cityName: String, forecast: com.quaderno.appmeteo.data.Foreca
             }
         }
 
-        // Previsioni orarie (prossime 24h)
+        // Previsioni orarie (dalla prossima ora in poi)
         forecast.hourly?.let { hourly ->
+            val startIndex = remember(hourly.time, current?.time) {
+                val currentTime = current?.time?.let { value ->
+                    runCatching { LocalDateTime.parse(value) }.getOrNull()
+                }
+                if (currentTime == null) {
+                    0
+                } else {
+                    hourly.time.indexOfFirst { entry ->
+                        runCatching { LocalDateTime.parse(entry).isAfter(currentTime) }.getOrDefault(false)
+                    }.takeIf { it >= 0 } ?: 0
+                }
+            }
+            val indexes = remember(hourly.time, startIndex) {
+                val endExclusive = minOf(startIndex + 24, hourly.time.size)
+                (startIndex until endExclusive).toList()
+            }
+
             Text("Prossime ore", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val count = minOf(24, hourly.time.size)
-                items(count) { index ->
+                items(indexes) { index ->
                     HourlyItem(
                         time = hourly.time[index],
                         temp = hourly.temperature_2m[index],
