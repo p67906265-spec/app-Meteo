@@ -25,17 +25,14 @@ class WeatherViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(WeatherUiState())
     val uiState: StateFlow<WeatherUiState> = _uiState.asStateFlow()
 
-    private var lastLatitude: Double? = null
-    private var lastLongitude: Double? = null
-    private var lastCityName: String = ""
-
+    /** Cerca una città per nome usando l'API di geocoding di Open-Meteo. */
     fun searchCity(query: String) {
         if (query.isBlank()) {
             _uiState.update { it.copy(searchResults = emptyList()) }
             return
         }
         viewModelScope.launch {
-            _uiState.update { it.copy(isSearching = true, error = null) }
+            _uiState.update { it.copy(isSearching = true) }
             try {
                 val response = NetworkModule.geocodingApi.search(query)
                 _uiState.update {
@@ -49,44 +46,29 @@ class WeatherViewModel : ViewModel() {
         }
     }
 
+    /** Carica il meteo per una città selezionata dai risultati di ricerca. */
     fun selectCity(city: GeoResult) {
         val label = listOfNotNull(city.name, city.admin1, city.country).joinToString(", ")
         loadForecast(city.latitude, city.longitude, label)
         _uiState.update { it.copy(searchResults = emptyList()) }
     }
 
+    /** Carica il meteo per coordinate dirette (es. posizione GPS attuale). */
     fun loadForecast(latitude: Double, longitude: Double, cityName: String) {
-        lastLatitude = latitude
-        lastLongitude = longitude
-        lastCityName = cityName
-
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, cityName = cityName) }
             try {
                 val forecast = NetworkModule.weatherApi.getForecast(latitude, longitude)
-                _uiState.update {
-                    it.copy(isLoading = false, forecast = forecast, error = null)
-                }
+                _uiState.update { it.copy(isLoading = false, forecast = forecast) }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = "Impossibile caricare il meteo in tempo reale: ${e.message}"
-                    )
+                    it.copy(isLoading = false, error = "Impossibile caricare il meteo: ${e.message}")
                 }
             }
         }
     }
 
-    fun refreshWeather() {
-        val lat = lastLatitude
-        val lon = lastLongitude
-        if (lat != null && lon != null) {
-            loadForecast(lat, lon, lastCityName.ifBlank { _uiState.value.cityName.ifBlank { "Posizione attuale" } })
-        }
-    }
-
-    fun setError(message: String) {
-        _uiState.update { it.copy(error = message) }
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 }

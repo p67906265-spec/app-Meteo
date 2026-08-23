@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Radar</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
     <style>
         html, body, #map { height: 100%; margin: 0; padding: 0; background: #111; }
         #controls {
@@ -22,17 +22,23 @@
             color: #fff; font-family: sans-serif; font-size: 10px; padding: 3px 6px; border-radius: 6px;
             z-index: 1000;
         }
+        #status {
+            position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.6);
+            color: #fff; font-family: sans-serif; font-size: 11px; padding: 4px 8px; border-radius: 6px;
+            z-index: 1000; max-width: 70%;
+        }
     </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="status">Caricamento radar…</div>
 <div id="controls">
     <button id="playPause">⏸</button>
     <span id="frameTime">--:--</span>
 </div>
 <div id="attribution">Radar: RainViewer.com</div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="leaflet/leaflet.js"></script>
 <script>
     var map = L.map('map', { zoomControl: true }).setView([41.9, 12.5], 6);
 
@@ -41,15 +47,14 @@
         maxZoom: 12
     }).addTo(map);
 
-    // Se l'app Android passa lat/lon (vedi loadRadar), centriamo lì.
-    function centerOn(lat, lon, zoom) {
-        map.setView([lat, lon], zoom || 8);
-    }
-
     var radarLayers = [];
     var currentIndex = 0;
     var playing = true;
     var timer = null;
+
+    function centerOn(lat, lon, zoom) {
+        map.setView([lat, lon], zoom || 8);
+    }
 
     function frameTimeLabel(unixTs) {
         var d = new Date(unixTs * 1000);
@@ -88,31 +93,37 @@
         if (playing) stopAnimation(); else startAnimation();
     });
 
-    // Carica gli ultimi frame radar da RainViewer (gratuito, nessuna API key richiesta)
-    fetch('https://api.rainviewer.com/public/weather-maps.json')
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            var host = data.host;
-            var frames = data.radar.past || [];
-            // Usiamo solo gli ultimi 8 frame per un'animazione leggera
-            frames = frames.slice(-8);
-
-            radarLayers = frames.map(function (frame) {
-                var url = host + frame.path + '/256/{z}/{x}/{y}/2/1_1.png';
-                return {
-                    time: frame.time,
-                    layer: L.tileLayer(url, { opacity: 0.6, maxZoom: 12 })
-                };
+    /**
+     * Chiamata da Kotlin (tramite evaluateJavascript) una volta scaricato il JSON di
+     * RainViewer lato nativo, evitando problemi di CORS/fetch dentro la WebView.
+     * framesJson: es. [{"time":1700000000,"url":"https://tilecache.rainviewer.com/v2/radar/1700000000/256/{z}/{x}/{y}/2/1_1.png"}, ...]
+     */
+    function loadFrames(framesJson) {
+        try {
+            var frames = JSON.parse(framesJson);
+            if (!frames || frames.length === 0) {
+                document.getElementById('status').innerText = 'Nessun dato radar disponibile';
+                return;
+            }
+            radarLayers = frames.map(function (f) {
+                return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.6, maxZoom: 12 }) };
             });
-
             currentIndex = radarLayers.length - 1;
             showFrame(currentIndex);
             startAnimation();
-        })
-        .catch(function (err) {
-            document.getElementById('frameTime').innerText = 'Errore radar';
-            console.error(err);
-        });
+            document.getElementById('status').style.display = 'none';
+        } catch (e) {
+            document.getElementById('status').innerText = 'Errore radar: ' + e.message;
+        }
+    }
+
+    function showError(message) {
+        document.getElementById('status').innerText = message;
+    }
+
+    window.loadFrames = loadFrames;
+    window.centerOn = centerOn;
+    window.showError = showError;
 </script>
 </body>
 </html>

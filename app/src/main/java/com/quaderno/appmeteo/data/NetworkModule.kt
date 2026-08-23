@@ -1,19 +1,33 @@
 package com.quaderno.appmeteo.data
 
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object NetworkModule {
-    private val weatherRetrofit = Retrofit.Builder()
-        .baseUrl("https://api.open-meteo.com/")
-        .addConverterFactory(GsonConverterFactory.create())
+
+    private val client = OkHttpClient.Builder()
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BASIC
+        })
         .build()
 
-    private val geocodingRetrofit = Retrofit.Builder()
-        .baseUrl("https://geocoding-api.open-meteo.com/")
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+    val weatherApi: OpenMeteoApi by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://api.open-meteo.com/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(OpenMeteoApi::class.java)
+    }
 
-    val weatherApi: OpenMeteoApi = weatherRetrofit.create(OpenMeteoApi::class.java)
-    val geocodingApi: GeocodingApi = geocodingRetrofit.create(GeocodingApi::class.java)
+    val geocodingApi: GeocodingApi by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://geocoding-api.open-meteo.com/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(GeocodingApi::class.java)
+    }
 }
