@@ -22,6 +22,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -593,7 +594,7 @@ fun SectionTitle(title: String) {
 }
 
 @Composable
-fun GlassCard(content: @Composable Column.() -> Unit) {
+fun GlassCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color(0x1FFFFFFF)),
         shape = RoundedCornerShape(28.dp)

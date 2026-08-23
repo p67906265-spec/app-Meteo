@@ -20,7 +20,7 @@ data class LegacyCurrentWeather(
     val time: String
 ) {
     fun toSnapshot(): CurrentSnapshot = CurrentSnapshot(
-        time = runCatching { LocalDateTime.parse(time) }.getOrElse { LocalDateTime.now() },
+        timeRaw = time,
         temperature = temperature,
         apparentTemperature = temperature,
         weatherCode = weathercode,
