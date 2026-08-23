@@ -150,6 +150,14 @@ fun RadarScreen() {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.allowFileAccess = true
+                    settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+                    clearCache(true)
+                    clearHistory()
+                    setBackgroundColor(android.graphics.Color.WHITE)
+                    // Fix per WebView che resta nera/vuota dentro Jetpack Compose su alcuni dispositivi
+                    setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
+                    WebView.setWebContentsDebuggingEnabled(true)
+                    webChromeClient = android.webkit.WebChromeClient()
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
@@ -166,7 +174,7 @@ fun RadarScreen() {
                             loadError = "Errore caricamento pagina: $description"
                         }
                     }
-                    loadUrl("file:///android_asset/radar.html")
+                    loadUrl("file:///android_asset/radar.html?v=" + System.currentTimeMillis())
                     webView = this
                 }
             }

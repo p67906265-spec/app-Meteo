@@ -1,4 +1,4 @@
-name: Build AppMeteo APK
+name: Build App Meteo APK
 
 on:
   push:
@@ -29,6 +29,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AppMeteo-debug-apk
+          name: AppMeteo-v1.24-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error

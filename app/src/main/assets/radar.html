@@ -6,7 +6,7 @@
     <title>Radar</title>
     <link rel="stylesheet" href="leaflet/leaflet.css" />
     <style>
-        html, body, #map { height: 100%; margin: 0; padding: 0; background: #111; }
+        html, body, #map { height: 100%; margin: 0; padding: 0; background: #333; }
         #controls {
             position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.6); color: #fff; padding: 8px 14px; border-radius: 20px;
@@ -23,15 +23,15 @@
             z-index: 1000;
         }
         #status {
-            position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.6);
-            color: #fff; font-family: sans-serif; font-size: 11px; padding: 4px 8px; border-radius: 6px;
-            z-index: 1000; max-width: 70%;
+            position: absolute; top: 8px; left: 8px; right: 100px; background: rgba(0,0,0,0.75);
+            color: #0f0; font-family: monospace; font-size: 11px; padding: 6px 8px; border-radius: 6px;
+            z-index: 2000; white-space: pre-wrap;
         }
     </style>
 </head>
 <body>
 <div id="map"></div>
-<div id="status">Caricamento radar…</div>
+<div id="status">Avvio…</div>
 <div id="controls">
     <button id="playPause">⏸</button>
     <span id="frameTime">--:--</span>
@@ -40,90 +40,119 @@
 
 <script src="leaflet/leaflet.js"></script>
 <script>
-    var map = L.map('map', { zoomControl: true }).setView([41.9, 12.5], 6);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 12
-    }).addTo(map);
-
-    var radarLayers = [];
-    var currentIndex = 0;
-    var playing = true;
-    var timer = null;
-
-    function centerOn(lat, lon, zoom) {
-        map.setView([lat, lon], zoom || 8);
+    var statusEl = document.getElementById('status');
+    var statusLines = [];
+    function log(msg) {
+        statusLines.push(msg);
+        if (statusLines.length > 8) statusLines.shift();
+        statusEl.innerText = statusLines.join('\n');
     }
 
-    function frameTimeLabel(unixTs) {
-        var d = new Date(unixTs * 1000);
-        var hh = d.getHours().toString().padStart(2, '0');
-        var mm = d.getMinutes().toString().padStart(2, '0');
-        return hh + ':' + mm;
-    }
+    // Cattura anche gli errori JS non gestiti, altrimenti la pagina resta muta
+    window.onerror = function (message, source, lineno, colno, error) {
+        log('JS ERROR: ' + message + ' (riga ' + lineno + ')');
+        return false;
+    };
 
-    function showFrame(index) {
-        if (radarLayers.length === 0) return;
-        radarLayers.forEach(function (l) { map.removeLayer(l.layer); });
-        var frame = radarLayers[index];
-        frame.layer.addTo(map);
-        document.getElementById('frameTime').innerText = frameTimeLabel(frame.time);
-    }
+    log('typeof L = ' + typeof L);
 
-    function nextFrame() {
-        currentIndex = (currentIndex + 1) % radarLayers.length;
-        showFrame(currentIndex);
-    }
-
-    function startAnimation() {
-        if (timer) clearInterval(timer);
-        timer = setInterval(nextFrame, 700);
-        playing = true;
-        document.getElementById('playPause').innerText = '⏸';
-    }
-
-    function stopAnimation() {
-        if (timer) clearInterval(timer);
-        playing = false;
-        document.getElementById('playPause').innerText = '▶';
-    }
-
-    document.getElementById('playPause').addEventListener('click', function () {
-        if (playing) stopAnimation(); else startAnimation();
-    });
-
-    /**
-     * Chiamata da Kotlin (tramite evaluateJavascript) una volta scaricato il JSON di
-     * RainViewer lato nativo, evitando problemi di CORS/fetch dentro la WebView.
-     * framesJson: es. [{"time":1700000000,"url":"https://tilecache.rainviewer.com/v2/radar/1700000000/256/{z}/{x}/{y}/2/1_1.png"}, ...]
-     */
-    function loadFrames(framesJson) {
+    if (typeof L === 'undefined') {
+        log('ERRORE: leaflet.js non si e caricato. Controlla assets/leaflet/leaflet.js');
+    } else {
         try {
-            var frames = JSON.parse(framesJson);
-            if (!frames || frames.length === 0) {
-                document.getElementById('status').innerText = 'Nessun dato radar disponibile';
-                return;
-            }
-            radarLayers = frames.map(function (f) {
-                return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.6, maxZoom: 12 }) };
+            var map = L.map('map', { zoomControl: true }).setView([41.9, 12.5], 6);
+            log('Mappa Leaflet inizializzata OK');
+
+            var baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 12
             });
-            currentIndex = radarLayers.length - 1;
-            showFrame(currentIndex);
-            startAnimation();
-            document.getElementById('status').style.display = 'none';
+
+            var baseTilesLoaded = 0;
+            var baseTilesErrored = 0;
+            baseLayer.on('tileload', function () {
+                baseTilesLoaded++;
+                log('Tile base OK: ' + baseTilesLoaded + ' caricate, ' + baseTilesErrored + ' errori');
+            });
+            baseLayer.on('tileerror', function (e) {
+                baseTilesErrored++;
+                log('ERRORE tile base (' + baseTilesErrored + '): rete/DNS verso tile.openstreetmap.org?');
+            });
+            baseLayer.addTo(map);
+
+            var radarLayers = [];
+            var currentIndex = 0;
+            var playing = true;
+            var timer = null;
+
+            window.centerOn = function (lat, lon, zoom) {
+                map.setView([lat, lon], zoom || 8);
+            };
+
+            function frameTimeLabel(unixTs) {
+                var d = new Date(unixTs * 1000);
+                var hh = d.getHours().toString().padStart(2, '0');
+                var mm = d.getMinutes().toString().padStart(2, '0');
+                return hh + ':' + mm;
+            }
+
+            function showFrame(index) {
+                if (radarLayers.length === 0) return;
+                radarLayers.forEach(function (l) { map.removeLayer(l.layer); });
+                var frame = radarLayers[index];
+                frame.layer.addTo(map);
+                document.getElementById('frameTime').innerText = frameTimeLabel(frame.time);
+            }
+
+            function nextFrame() {
+                currentIndex = (currentIndex + 1) % radarLayers.length;
+                showFrame(currentIndex);
+            }
+
+            function startAnimation() {
+                if (timer) clearInterval(timer);
+                timer = setInterval(nextFrame, 700);
+                playing = true;
+                document.getElementById('playPause').innerText = '⏸';
+            }
+
+            function stopAnimation() {
+                if (timer) clearInterval(timer);
+                playing = false;
+                document.getElementById('playPause').innerText = '▶';
+            }
+
+            document.getElementById('playPause').addEventListener('click', function () {
+                if (playing) stopAnimation(); else startAnimation();
+            });
+
+            window.loadFrames = function (framesJson) {
+                try {
+                    log('loadFrames chiamata, lunghezza JSON: ' + framesJson.length);
+                    var frames = JSON.parse(framesJson);
+                    if (!frames || frames.length === 0) {
+                        log('Nessun frame radar ricevuto da Kotlin');
+                        return;
+                    }
+                    radarLayers = frames.map(function (f) {
+                        return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.6, maxZoom: 12 }) };
+                    });
+                    currentIndex = radarLayers.length - 1;
+                    showFrame(currentIndex);
+                    startAnimation();
+                    log('Radar caricato: ' + frames.length + ' frame');
+                } catch (e) {
+                    log('ERRORE loadFrames: ' + e.message);
+                }
+            };
+
+            window.showError = function (message) {
+                log('KOTLIN: ' + message);
+            };
         } catch (e) {
-            document.getElementById('status').innerText = 'Errore radar: ' + e.message;
+            log('ERRORE init mappa: ' + e.message);
         }
     }
-
-    function showError(message) {
-        document.getElementById('status').innerText = message;
-    }
-
-    window.loadFrames = loadFrames;
-    window.centerOn = centerOn;
-    window.showError = showError;
 </script>
 </body>
 </html>
