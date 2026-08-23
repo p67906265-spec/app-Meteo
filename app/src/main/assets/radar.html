@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="leaflet/leaflet.css" />
     <style>
         html, body, #map { height: 100%; margin: 0; padding: 0; background: #333; }
+        .leaflet-tile { opacity: 1 !important; }
         #controls {
             position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.6); color: #fff; padding: 8px 14px; border-radius: 20px;
@@ -60,7 +61,7 @@
         log('ERRORE: leaflet.js non si e caricato. Controlla assets/leaflet/leaflet.js');
     } else {
         try {
-            var map = L.map('map', { zoomControl: true }).setView([41.9, 12.5], 6);
+            var map = L.map('map', { zoomControl: true, fadeAnimation: false, zoomAnimation: false }).setView([41.9, 12.5], 6);
             log('Mappa Leaflet inizializzata OK');
 
             var baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

@@ -11,10 +11,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
@@ -30,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.quaderno.appmeteo.data.Daily
@@ -154,8 +159,6 @@ fun RadarScreen() {
                     clearCache(true)
                     clearHistory()
                     setBackgroundColor(android.graphics.Color.WHITE)
-                    // Fix per WebView che resta nera/vuota dentro Jetpack Compose su alcuni dispositivi
-                    setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
                     WebView.setWebContentsDebuggingEnabled(true)
                     webChromeClient = android.webkit.WebChromeClient()
                     webViewClient = object : WebViewClient() {
@@ -210,33 +213,44 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        // Barra di ricerca
-        OutlinedTextField(
-            value = query,
-            onValueChange = {
-                query = it
-                viewModel.searchCity(it)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Cerca una città…") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            trailingIcon = {
-                IconButton(onClick = onRequestLocation) {
-                    Icon(Icons.Default.LocationOn, contentDescription = "Usa posizione attuale")
-                }
-            },
-            singleLine = true
-        )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Column {
+                // Barra di ricerca
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = {
+                        query = it
+                        viewModel.searchCity(it)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Cerca una città…") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        IconButton(onClick = onRequestLocation) {
+                            Icon(Icons.Default.LocationOn, contentDescription = "Usa posizione attuale")
+                        }
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    singleLine = true
+                )
+            }
 
-        // Risultati ricerca
-        if (state.searchResults.isNotEmpty()) {
-            LazyColumn(modifier = Modifier.padding(top = 4.dp)) {
-                items(state.searchResults) { result ->
-                    CityResultRow(result) {
+            // Tendina risultati: fluttua sopra il contenuto sottostante invece di spingerlo giù
+            androidx.compose.animation.AnimatedVisibility(
+                visible = state.searchResults.isNotEmpty(),
+                modifier = Modifier
+                    .padding(top = 60.dp)
+                    .zIndex(10f),
+                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
+                exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
+            ) {
+                CitySearchDropdown(
+                    results = state.searchResults,
+                    onSelect = { result ->
                         query = ""
                         viewModel.selectCity(result)
                     }
-                }
+                )
             }
         }
 
@@ -266,16 +280,58 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
 }
 
 @Composable
-fun CityResultRow(result: GeoResult, onClick: () -> Unit) {
-    val subtitle = listOfNotNull(result.admin1, result.country).joinToString(", ")
+fun CitySearchDropdown(results: List<GeoResult>, onSelect: (GeoResult) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        onClick = onClick
+            .heightIn(max = 280.dp),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(result.name, fontWeight = FontWeight.Medium)
+        LazyColumn {
+            itemsIndexed(results) { index, result ->
+                CityResultRow(result) { onSelect(result) }
+                if (index < results.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CityResultRow(result: GeoResult, onClick: () -> Unit) {
+    val subtitle = listOfNotNull(result.admin1, result.country).joinToString(", ")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .background(
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(result.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             if (subtitle.isNotBlank()) {
                 Text(subtitle, fontSize = 12.sp, color = Color.Gray)
             }
@@ -294,20 +350,34 @@ fun WeatherContent(cityName: String, forecast: com.quaderno.appmeteo.data.Foreca
 
         // Meteo attuale
         current?.let {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(vertical = 12.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.03f)
+                            )
+                        )
+                    )
+                    .padding(vertical = 24.dp)
             ) {
-                Text(WeatherCode.emoji(it.weathercode), fontSize = 64.sp)
-                Text(
-                    "${it.temperature.toInt()}°C",
-                    fontSize = 48.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(WeatherCode.description(it.weathercode), fontSize = 16.sp, color = Color.Gray)
-                Text("Vento: ${it.windspeed.toInt()} km/h", fontSize = 14.sp, color = Color.Gray)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(WeatherCode.emoji(it.weathercode), fontSize = 64.sp)
+                    Text(
+                        "${it.temperature.toInt()}°C",
+                        fontSize = 52.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(WeatherCode.description(it.weathercode), fontSize = 16.sp, color = Color.Gray)
+                    Text("Vento: ${it.windspeed.toInt()} km/h", fontSize = 14.sp, color = Color.Gray)
+                }
             }
         }
 
