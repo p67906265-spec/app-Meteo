@@ -6,7 +6,12 @@
     <title>Radar</title>
     <link rel="stylesheet" href="leaflet/leaflet.css" />
     <style>
-        html, body, #map { height: 100%; margin: 0; padding: 0; background: #333; }
+        html, body { margin: 0; padding: 0; height: 100%; }
+        #map {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #333;
+        }
         .leaflet-tile { opacity: 1 !important; }
         #controls {
             position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
