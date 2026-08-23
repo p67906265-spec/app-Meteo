@@ -66,7 +66,7 @@
         log('ERRORE: leaflet.js non si e caricato. Controlla assets/leaflet/leaflet.js');
     } else {
         try {
-            var map = L.map('map', { zoomControl: true, fadeAnimation: false, zoomAnimation: false }).setView([41.9, 12.5], 6);
+            var map = L.map('map', { zoomControl: true, fadeAnimation: false, zoomAnimation: false }).setView([41.9, 12.5], 5);
             log('Mappa Leaflet inizializzata OK');
 
             var baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -78,7 +78,6 @@
             var baseTilesErrored = 0;
             baseLayer.on('tileload', function () {
                 baseTilesLoaded++;
-                log('Tile base OK: ' + baseTilesLoaded + ' caricate, ' + baseTilesErrored + ' errori');
             });
             baseLayer.on('tileerror', function (e) {
                 baseTilesErrored++;
@@ -121,6 +120,7 @@
                 var frame = radarLayers[index];
                 frame.layer.addTo(map);
                 document.getElementById('frameTime').innerText = frameTimeLabel(frame.time);
+                log('▶ frame ' + (index + 1) + '/' + radarLayers.length + ' - ore ' + frameTimeLabel(frame.time));
             }
 
             function nextFrame() {
@@ -154,7 +154,7 @@
                         return;
                     }
                     radarLayers = frames.map(function (f) {
-                        return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.6, maxZoom: 12 }) };
+                        return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.75, maxZoom: 12 }) };
                     });
                     currentIndex = radarLayers.length - 1;
                     showFrame(currentIndex);

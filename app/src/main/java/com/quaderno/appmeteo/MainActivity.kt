@@ -96,12 +96,16 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppRoot(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
     var selectedTab by remember { mutableStateOf(0) }
+    val state by viewModel.uiState.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
                 0 -> WeatherScreen(viewModel = viewModel, onRequestLocation = onRequestLocation)
-                1 -> RadarScreen()
+                1 -> RadarScreen(
+                    centerLat = state.forecast?.latitude,
+                    centerLon = state.forecast?.longitude
+                )
             }
         }
         NavigationBar {
@@ -122,10 +126,16 @@ fun AppRoot(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
 }
 
 @Composable
-fun RadarScreen() {
+fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var pageReady by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf<String?>(null) }
+
+    // Centra la mappa sulla città cercata nella scheda Meteo, se disponibile
+    LaunchedEffect(pageReady, centerLat, centerLon) {
+        if (!pageReady || centerLat == null || centerLon == null) return@LaunchedEffect
+        webView?.evaluateJavascript("if(window.centerOn) centerOn($centerLat, $centerLon, 8);", null)
+    }
 
     // Scarica i frame radar in Kotlin (evita problemi di fetch/CORS dentro la WebView)
     LaunchedEffect(pageReady) {
@@ -398,12 +408,18 @@ fun WeatherContent(cityName: String, forecast: com.quaderno.appmeteo.data.Foreca
             }
         }
 
-        // Previsioni orarie (prossime 24h)
+        // Previsioni orarie (prossime 24h a partire dall'ora successiva a quella attuale)
         forecast.hourly?.let { hourly ->
             Text("Prossime ore", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+            val now = java.time.LocalDateTime.now()
+            val startIndex = hourly.time.indexOfFirst { t ->
+                runCatching { java.time.LocalDateTime.parse(t).isAfter(now) }.getOrDefault(false)
+            }.let { if (it == -1) 0 else it }
+            val endIndex = minOf(hourly.time.size, startIndex + 24)
+
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val count = minOf(24, hourly.time.size)
-                items(count) { index ->
+                items(endIndex - startIndex) { i ->
+                    val index = startIndex + i
                     HourlyItem(
                         time = hourly.time[index],
                         temp = hourly.temperature_2m[index],
