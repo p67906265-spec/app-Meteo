@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
@@ -231,7 +233,7 @@ fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
 fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     var query by remember { mutableStateOf("") }
-    var settingsExpanded by remember { mutableStateOf(false) }
+    var positionExpanded by remember { mutableStateOf(false) }
     var searchExpanded by remember { mutableStateOf(false) }
     val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
@@ -253,21 +255,47 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
                         fontSize = 25.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    IconButton(onClick = {
-                        settingsExpanded = !settingsExpanded
-                        if (!settingsExpanded) {
-                            searchExpanded = false
-                            query = ""
-                            viewModel.searchCity("")
-                            focusManager.clearFocus()
-                        }
-                    }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Impostazioni")
+
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable {
+                                positionExpanded = !positionExpanded
+                                if (!positionExpanded) {
+                                    searchExpanded = false
+                                    query = ""
+                                    viewModel.searchCity("")
+                                    focusManager.clearFocus()
+                                }
+                            }
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = if (state.cityName.isBlank()) "Posizione attuale" else state.cityName,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            modifier = Modifier.widthIn(max = 175.dp)
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Icon(
+                            imageVector = if (positionExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (positionExpanded) "Chiudi posizione" else "Apri posizione",
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
 
-            if (settingsExpanded) {
+            if (positionExpanded) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -282,17 +310,11 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                "Posizione",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp
-                            )
-
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.72f))
                                     .clickable { searchExpanded = true }
                                     .padding(start = 12.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -300,13 +322,18 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
                                 Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    if (state.cityName.isBlank()) "Cerca città" else state.cityName,
+                                    if (state.cityName.isBlank()) "Cerca una città" else state.cityName,
                                     color = if (state.cityName.isBlank()) Color.Gray else MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f),
                                     maxLines = 1
                                 )
-                                IconButton(onClick = onRequestLocation) {
-                                    Icon(Icons.Default.LocationOn, contentDescription = "Posizione attuale")
+                                IconButton(onClick = {
+                                    positionExpanded = false
+                                    searchExpanded = false
+                                    focusManager.clearFocus()
+                                    onRequestLocation()
+                                }) {
+                                    Icon(Icons.Default.LocationOn, contentDescription = "Usa posizione attuale")
                                 }
                             }
 
@@ -345,7 +372,7 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
                                         onSelect = { result ->
                                             query = ""
                                             searchExpanded = false
-                                            settingsExpanded = false
+                                            positionExpanded = false
                                             focusManager.clearFocus()
                                             viewModel.selectCity(result)
                                         }
@@ -382,15 +409,11 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
                     val current = forecast.currentWeather
 
                     current?.let { weather ->
-                        item {
-                            CurrentWeatherCard(weather)
-                        }
+                        item { CurrentWeatherCard(weather) }
                     }
 
                     forecast.hourly?.let { hourly ->
-                        item {
-                            Text("Prossime ore", fontWeight = FontWeight.SemiBold)
-                        }
+                        item { Text("Prossime ore", fontWeight = FontWeight.SemiBold, fontSize = 18.sp) }
                         item {
                             val now = java.time.LocalDateTime.now()
                             val startIndex = hourly.time.indexOfFirst { t ->
@@ -416,11 +439,15 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
                             Text(
                                 "Prossimi giorni",
                                 fontWeight = FontWeight.SemiBold,
+                                fontSize = 18.sp,
                                 modifier = Modifier.padding(top = 6.dp)
                             )
                         }
                         items(daily.time.size) { index ->
                             DailyRow(daily, index)
+                            if (index < daily.time.lastIndex) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+                            }
                         }
                     }
                 }
@@ -428,7 +455,7 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
                 else -> {
                     item {
                         Text(
-                            "Apri Impostazioni per scegliere una città o usare la posizione attuale.",
+                            "Apri Posizione attuale in alto per scegliere una città o usare il GPS.",
                             color = Color.Gray,
                             modifier = Modifier.padding(top = 24.dp)
                         )
@@ -513,7 +540,7 @@ fun CurrentWeatherCard(current: com.quaderno.appmeteo.data.CurrentWeather) {
                     )
                 )
             )
-            .padding(vertical = 11.dp, horizontal = 14.dp)
+            .padding(vertical = 15.dp, horizontal = 16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -523,21 +550,21 @@ fun CurrentWeatherCard(current: com.quaderno.appmeteo.data.CurrentWeather) {
             Column {
                 Text(
                     "${current.temperature.toInt()}°C",
-                    fontSize = 36.sp,
+                    fontSize = 40.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     WeatherCode.description(current.weathercode),
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     color = Color.Gray
                 )
                 Text(
                     "Vento: ${current.windspeed.toInt()} km/h",
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     color = Color.Gray
                 )
             }
-            Text(WeatherCode.emoji(current.weathercode), fontSize = 42.sp)
+            Text(WeatherCode.emoji(current.weathercode), fontSize = 48.sp)
         }
     }
 }
@@ -576,19 +603,42 @@ fun DailyRow(daily: Daily, index: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(dayLabel, modifier = Modifier.width(56.dp))
-        Text(WeatherCode.emoji(daily.weathercode[index]), fontSize = 15.sp, modifier = Modifier.width(40.dp))
+        Text(dayLabel, modifier = Modifier.width(52.dp), fontSize = 15.sp)
+        Text(WeatherCode.emoji(daily.weathercode[index]), fontSize = 17.sp, modifier = Modifier.width(42.dp))
         Text(
             WeatherCode.description(daily.weathercode[index]),
             modifier = Modifier.weight(1f),
             fontSize = 13.sp,
-            color = Color.Gray
+            color = Color.Gray,
+            maxLines = 2
         )
-        Text("${daily.temperature_2m_min[index].toInt()}°", color = Color.Gray)
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("${daily.temperature_2m_max[index].toInt()}°", fontWeight = FontWeight.Medium)
+
+        Column(
+            modifier = Modifier.width(48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Min", fontSize = 9.sp, color = Color.Gray)
+            Text(
+                "${daily.temperature_2m_min[index].toInt()}°",
+                fontSize = 15.sp,
+                color = Color.Gray
+            )
+        }
+
+        Column(
+            modifier = Modifier.width(48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Max", fontSize = 9.sp, color = Color.Gray)
+            Text(
+                "${daily.temperature_2m_max[index].toInt()}°",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
+

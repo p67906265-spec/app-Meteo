@@ -12,8 +12,8 @@ android {
         applicationId = "com.quaderno.appmeteo"
         minSdk = 24
         targetSdk = 34
-        versionCode = 13
-        versionName = "1.31"
+        versionCode = 14
+        versionName = "1.32"
     }
 
     buildTypes {
