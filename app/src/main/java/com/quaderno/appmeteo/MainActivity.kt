@@ -45,8 +45,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -480,10 +478,25 @@ fun HeroWeatherCard(cityName: String, current: CurrentSnapshot, isRefreshing: Bo
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                WeatherMetricChip(label = "Percepita", value = "${current.apparentTemperature?.toInt() ?: current.temperature.toInt()}°")
-                WeatherMetricChip(label = "Vento", value = "${current.windSpeed.toInt()} km/h")
-                WeatherMetricChip(label = "Umidità", value = current.relativeHumidity?.let { "$it%" } ?: "--")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                WeatherMetricChip(
+                    label = "Percepita",
+                    value = "${current.apparentTemperature?.toInt() ?: current.temperature.toInt()}°",
+                    modifier = Modifier.weight(1f)
+                )
+                WeatherMetricChip(
+                    label = "Vento",
+                    value = "${current.windSpeed.toInt()} km/h",
+                    modifier = Modifier.weight(1f)
+                )
+                WeatherMetricChip(
+                    label = "Umidità",
+                    value = current.relativeHumidity?.let { "$it%" } ?: "--",
+                    modifier = Modifier.weight(1f)
+                )
             }
 
             current.precipitation?.let {
@@ -498,18 +511,34 @@ fun HeroWeatherCard(cityName: String, current: CurrentSnapshot, isRefreshing: Bo
 }
 
 @Composable
-fun WeatherMetricChip(label: String, value: String) {
-    AssistChip(
-        onClick = { },
-        label = {
-            Text("$label $value", color = Color.White, fontSize = 12.sp)
-        },
-        colors = AssistChipDefaults.assistChipColors(
-            containerColor = Color(0x22FFFFFF),
-            labelColor = Color.White
-        ),
-        border = null
-    )
+fun WeatherMetricChip(label: String, value: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = Color(0x22FFFFFF)),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = label,
+                color = Color(0xD9FFFFFF),
+                fontSize = 11.sp,
+                maxLines = 1
+            )
+            Text(
+                text = value,
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+        }
+    }
 }
 
 @Composable
@@ -531,26 +560,26 @@ fun HourlyForecastRow(hourly: Hourly?, currentTime: LocalDateTime?) {
         items(indexes) { index ->
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0x22FFFFFF)),
-                shape = RoundedCornerShape(20.dp)
+                shape = RoundedCornerShape(18.dp)
             ) {
                 Column(
                     modifier = Modifier
-                        .width(88.dp)
-                        .padding(vertical = 12.dp, horizontal = 10.dp),
+                        .width(78.dp)
+                        .padding(vertical = 10.dp, horizontal = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = formatHourLabel(hourly.time[index]),
                         color = Color(0xD9FFFFFF),
-                        fontSize = 13.sp
+                        fontSize = 12.sp
                     )
-                    Text(WeatherCode.emoji(hourly.weatherCode[index]), fontSize = 28.sp)
+                    Text(WeatherCode.emoji(hourly.weatherCode[index]), fontSize = 22.sp)
                     Text(
                         text = "${hourly.temperature_2m[index].toInt()}°",
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 24.sp
+                        fontSize = 21.sp
                     )
                 }
             }
