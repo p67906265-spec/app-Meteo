@@ -12,8 +12,8 @@ android {
         applicationId = "com.quaderno.appmeteo"
         minSdk = 24
         targetSdk = 34
-        versionCode = 14
-        versionName = "1.32"
+        versionCode = 15
+        versionName = "1.33"
     }
 
     buildTypes {
@@ -42,7 +42,6 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
@@ -65,4 +64,6 @@ dependencies {
 
     // Location (opzionale, per "usa posizione attuale")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 }
