@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -230,112 +231,209 @@ fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
 fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     var query by remember { mutableStateOf("") }
+    var settingsExpanded by remember { mutableStateOf(false) }
     var searchExpanded by remember { mutableStateOf(false) }
     val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Text(
-            "Meteo",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Meteo",
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = {
+                        settingsExpanded = !settingsExpanded
+                        if (!settingsExpanded) {
+                            searchExpanded = false
+                            query = ""
+                            viewModel.searchCity("")
+                            focusManager.clearFocus()
+                        }
+                    }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Impostazioni")
+                    }
+                }
+            }
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Column {
-                if (!searchExpanded) {
-                    // Barra compatta: risparmia spazio, si espande al tocco
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .clickable { searchExpanded = true }
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            if (settingsExpanded) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                        )
                     ) {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text("Cerca una città…", color = Color.Gray, modifier = Modifier.weight(1f))
-                        IconButton(onClick = onRequestLocation) {
-                            Icon(Icons.Default.LocationOn, contentDescription = "Usa posizione attuale")
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Posizione",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
+                                    .clickable { searchExpanded = true }
+                                    .padding(start = 12.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    if (state.cityName.isBlank()) "Cerca città" else state.cityName,
+                                    color = if (state.cityName.isBlank()) Color.Gray else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1
+                                )
+                                IconButton(onClick = onRequestLocation) {
+                                    Icon(Icons.Default.LocationOn, contentDescription = "Posizione attuale")
+                                }
+                            }
+
+                            if (searchExpanded) {
+                                OutlinedTextField(
+                                    value = query,
+                                    onValueChange = {
+                                        query = it
+                                        viewModel.searchCity(it)
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .focusRequester(focusRequester),
+                                    placeholder = { Text("Scrivi una città…") },
+                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            query = ""
+                                            viewModel.searchCity("")
+                                            searchExpanded = false
+                                            focusManager.clearFocus()
+                                        }) {
+                                            Icon(Icons.Default.Close, contentDescription = "Chiudi")
+                                        }
+                                    },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                LaunchedEffect(searchExpanded) {
+                                    if (searchExpanded) focusRequester.requestFocus()
+                                }
+
+                                if (state.searchResults.isNotEmpty()) {
+                                    CitySearchDropdown(
+                                        results = state.searchResults,
+                                        onSelect = { result ->
+                                            query = ""
+                                            searchExpanded = false
+                                            settingsExpanded = false
+                                            focusManager.clearFocus()
+                                            viewModel.selectCity(result)
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
-                } else {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = {
-                            query = it
-                            viewModel.searchCity(it)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester),
-                        placeholder = { Text("Cerca una città…") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        trailingIcon = {
-                            IconButton(onClick = {
-                                query = ""
-                                viewModel.searchCity("")
-                                focusManager.clearFocus()
-                                searchExpanded = false
-                            }) {
-                                Icon(Icons.Default.Close, contentDescription = "Chiudi ricerca")
-                            }
-                        },
-                        shape = RoundedCornerShape(16.dp),
-                        singleLine = true
-                    )
-                    LaunchedEffect(Unit) { focusRequester.requestFocus() }
                 }
             }
 
-            // Tendina risultati: fluttua sopra il contenuto sottostante invece di spingerlo giù
-            androidx.compose.animation.AnimatedVisibility(
-                visible = searchExpanded && state.searchResults.isNotEmpty(),
-                modifier = Modifier
-                    .padding(top = 60.dp)
-                    .zIndex(10f),
-                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(),
-                exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()
-            ) {
-                CitySearchDropdown(
-                    results = state.searchResults,
-                    onSelect = { result ->
-                        query = ""
-                        searchExpanded = false
-                        focusManager.clearFocus()
-                        viewModel.selectCity(result)
+            when {
+                state.isLoading -> {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
                     }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        when {
-            state.isLoading -> {
-                Box(modifier = Modifier.fillMaxWidth().padding(top = 32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
                 }
-            }
-            state.error != null -> {
-                Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
-            }
-            state.forecast != null -> {
-                WeatherContent(cityName = state.cityName, forecast = state.forecast!!)
-            }
-            else -> {
-                Text(
-                    "Cerca una città o usa la tua posizione attuale per vedere il meteo.",
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 32.dp)
-                )
+
+                state.error != null -> {
+                    item {
+                        Text(state.error ?: "", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+
+                state.forecast != null -> {
+                    val forecast = state.forecast!!
+                    val current = forecast.currentWeather
+
+                    current?.let { weather ->
+                        item {
+                            CurrentWeatherCard(weather)
+                        }
+                    }
+
+                    forecast.hourly?.let { hourly ->
+                        item {
+                            Text("Prossime ore", fontWeight = FontWeight.SemiBold)
+                        }
+                        item {
+                            val now = java.time.LocalDateTime.now()
+                            val startIndex = hourly.time.indexOfFirst { t ->
+                                runCatching { java.time.LocalDateTime.parse(t).isAfter(now) }.getOrDefault(false)
+                            }.let { if (it == -1) 0 else it }
+                            val endIndex = minOf(hourly.time.size, startIndex + 24)
+
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                items(endIndex - startIndex) { i ->
+                                    val index = startIndex + i
+                                    HourlyItem(
+                                        time = hourly.time[index],
+                                        temp = hourly.temperature_2m[index],
+                                        code = hourly.weathercode[index]
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    forecast.daily?.let { daily ->
+                        item {
+                            Text(
+                                "Prossimi giorni",
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                        }
+                        items(daily.time.size) { index ->
+                            DailyRow(daily, index)
+                        }
+                    }
+                }
+
+                else -> {
+                    item {
+                        Text(
+                            "Apri Impostazioni per scegliere una città o usare la posizione attuale.",
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 24.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -402,77 +500,44 @@ fun CityResultRow(result: GeoResult, onClick: () -> Unit) {
 }
 
 @Composable
-fun WeatherContent(cityName: String, forecast: com.quaderno.appmeteo.data.ForecastResponse) {
-    val current = forecast.currentWeather
-
-    Column {
-        if (cityName.isNotBlank()) {
-            Text(cityName, fontSize = 18.sp, color = Color.Gray)
-        }
-
-        // Meteo attuale
-        current?.let {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(
-                        androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.03f)
-                            )
-                        )
+fun CurrentWeatherCard(current: com.quaderno.appmeteo.data.CurrentWeather) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.03f)
                     )
-                    .padding(vertical = 24.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(WeatherCode.emoji(it.weathercode), fontSize = 64.sp)
-                    Text(
-                        "${it.temperature.toInt()}°C",
-                        fontSize = 52.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(WeatherCode.description(it.weathercode), fontSize = 16.sp, color = Color.Gray)
-                    Text("Vento: ${it.windspeed.toInt()} km/h", fontSize = 14.sp, color = Color.Gray)
-                }
+                )
+            )
+            .padding(vertical = 11.dp, horizontal = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    "${current.temperature.toInt()}°C",
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    WeatherCode.description(current.weathercode),
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
+                Text(
+                    "Vento: ${current.windspeed.toInt()} km/h",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
             }
-        }
-
-        // Previsioni orarie (prossime 24h a partire dall'ora successiva a quella attuale)
-        forecast.hourly?.let { hourly ->
-            Text("Prossime ore", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
-            val now = java.time.LocalDateTime.now()
-            val startIndex = hourly.time.indexOfFirst { t ->
-                runCatching { java.time.LocalDateTime.parse(t).isAfter(now) }.getOrDefault(false)
-            }.let { if (it == -1) 0 else it }
-            val endIndex = minOf(hourly.time.size, startIndex + 24)
-
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(endIndex - startIndex) { i ->
-                    val index = startIndex + i
-                    HourlyItem(
-                        time = hourly.time[index],
-                        temp = hourly.temperature_2m[index],
-                        code = hourly.weathercode[index]
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-        }
-
-        // Previsioni giornaliere
-        forecast.daily?.let { daily ->
-            Text("Prossimi giorni", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
-            LazyColumn {
-                items(daily.time.size) { index ->
-                    DailyRow(daily, index)
-                }
-            }
+            Text(WeatherCode.emoji(current.weathercode), fontSize = 42.sp)
         }
     }
 }
