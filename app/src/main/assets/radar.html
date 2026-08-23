@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Radar</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        html, body, #map { height: 100%; margin: 0; padding: 0; background: #111; }
+        #controls {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.6); color: #fff; padding: 8px 14px; border-radius: 20px;
+            font-family: sans-serif; font-size: 13px; display: flex; align-items: center; gap: 10px;
+            z-index: 1000;
+        }
+        #controls button {
+            background: #fff; border: none; border-radius: 50%; width: 32px; height: 32px;
+            font-size: 14px; cursor: pointer;
+        }
+        #attribution {
+            position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.5);
+            color: #fff; font-family: sans-serif; font-size: 10px; padding: 3px 6px; border-radius: 6px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="controls">
+    <button id="playPause">⏸</button>
+    <span id="frameTime">--:--</span>
+</div>
+<div id="attribution">Radar: RainViewer.com</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    var map = L.map('map', { zoomControl: true }).setView([41.9, 12.5], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 12
+    }).addTo(map);
+
+    // Se l'app Android passa lat/lon (vedi loadRadar), centriamo lì.
+    function centerOn(lat, lon, zoom) {
+        map.setView([lat, lon], zoom || 8);
+    }
+
+    var radarLayers = [];
+    var currentIndex = 0;
+    var playing = true;
+    var timer = null;
+
+    function frameTimeLabel(unixTs) {
+        var d = new Date(unixTs * 1000);
+        var hh = d.getHours().toString().padStart(2, '0');
+        var mm = d.getMinutes().toString().padStart(2, '0');
+        return hh + ':' + mm;
+    }
+
+    function showFrame(index) {
+        if (radarLayers.length === 0) return;
+        radarLayers.forEach(function (l) { map.removeLayer(l.layer); });
+        var frame = radarLayers[index];
+        frame.layer.addTo(map);
+        document.getElementById('frameTime').innerText = frameTimeLabel(frame.time);
+    }
+
+    function nextFrame() {
+        currentIndex = (currentIndex + 1) % radarLayers.length;
+        showFrame(currentIndex);
+    }
+
+    function startAnimation() {
+        if (timer) clearInterval(timer);
+        timer = setInterval(nextFrame, 700);
+        playing = true;
+        document.getElementById('playPause').innerText = '⏸';
+    }
+
+    function stopAnimation() {
+        if (timer) clearInterval(timer);
+        playing = false;
+        document.getElementById('playPause').innerText = '▶';
+    }
+
+    document.getElementById('playPause').addEventListener('click', function () {
+        if (playing) stopAnimation(); else startAnimation();
+    });
+
+    // Carica gli ultimi frame radar da RainViewer (gratuito, nessuna API key richiesta)
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            var host = data.host;
+            var frames = data.radar.past || [];
+            // Usiamo solo gli ultimi 8 frame per un'animazione leggera
+            frames = frames.slice(-8);
+
+            radarLayers = frames.map(function (frame) {
+                var url = host + frame.path + '/256/{z}/{x}/{y}/2/1_1.png';
+                return {
+                    time: frame.time,
+                    layer: L.tileLayer(url, { opacity: 0.6, maxZoom: 12 })
+                };
+            });
+
+            currentIndex = radarLayers.length - 1;
+            showFrame(currentIndex);
+            startAnimation();
+        })
+        .catch(function (err) {
+            document.getElementById('frameTime').innerText = 'Errore radar';
+            console.error(err);
+        });
+</script>
+</body>
+</html>
