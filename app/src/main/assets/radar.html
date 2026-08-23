@@ -81,6 +81,19 @@
             });
             baseLayer.addTo(map);
 
+            // Fix: dentro Jetpack Compose la WebView spesso non ha ancora le dimensioni
+            // finali quando la mappa si inizializza, quindi Leaflet calcola un'area
+            // visibile troppo piccola. Forziamo un ricalcolo a intervalli.
+            function forceResize(label) {
+                map.invalidateSize();
+                log('invalidateSize (' + label + ') - dimensioni mappa: ' + map.getSize().x + 'x' + map.getSize().y);
+            }
+            setTimeout(function () { forceResize('300ms'); }, 300);
+            setTimeout(function () { forceResize('800ms'); }, 800);
+            setTimeout(function () { forceResize('1500ms'); }, 1500);
+            window.addEventListener('resize', function () { forceResize('window-resize'); });
+            window.invalidateMapSize = function () { forceResize('kotlin'); };
+
             var radarLayers = [];
             var currentIndex = 0;
             var playing = true;

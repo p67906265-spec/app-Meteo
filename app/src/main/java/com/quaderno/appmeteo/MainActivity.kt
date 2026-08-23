@@ -165,6 +165,14 @@ fun RadarScreen() {
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             pageReady = true
+                            // Ricalcola le dimensioni della mappa più volte: la WebView dentro
+                            // Compose spesso non ha ancora le dimensioni definitive a questo punto
+                            view?.postDelayed({
+                                view.evaluateJavascript("if(window.invalidateMapSize) invalidateMapSize();", null)
+                            }, 400)
+                            view?.postDelayed({
+                                view.evaluateJavascript("if(window.invalidateMapSize) invalidateMapSize();", null)
+                            }, 1200)
                         }
 
                         override fun onReceivedError(
@@ -179,6 +187,15 @@ fun RadarScreen() {
                     }
                     loadUrl("file:///android_asset/radar.html?v=" + System.currentTimeMillis())
                     webView = this
+                    // Quando Compose assegna finalmente la dimensione reale alla WebView,
+                    // forziamo Leaflet a ricalcolare l'area visibile
+                    addOnLayoutChangeListener { v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+                        if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
+                            (v as WebView).evaluateJavascript(
+                                "if(window.invalidateMapSize) invalidateMapSize();", null
+                            )
+                        }
+                    }
                 }
             }
         )
