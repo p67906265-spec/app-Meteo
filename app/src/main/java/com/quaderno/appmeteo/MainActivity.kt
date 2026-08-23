@@ -253,10 +253,10 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(ScreenBg),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp)) {
+            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp)) {
                 HeaderRow(
                     locationLabel = state.cityName.ifBlank { "Posizione attuale" },
                     expanded = panelExpanded,
@@ -343,7 +343,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.weatherItems(forecast
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Text(
                     text = "Prossime ore",
-                    fontSize = 26.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextDark,
                     modifier = Modifier.padding(bottom = 10.dp)
@@ -371,10 +371,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.weatherItems(forecast
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Text(
                     text = "Prossimi giorni",
-                    fontSize = 26.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextDark,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
                 )
                 Column(
                     modifier = Modifier
@@ -403,14 +403,14 @@ fun HeaderRow(locationLabel: String, expanded: Boolean, onClick: () -> Unit) {
         Text(
             text = "Meteo",
             color = TextDark,
-            fontSize = 32.sp,
+            fontSize = 34.sp,
             fontWeight = FontWeight.Bold
         )
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(18.dp))
                 .clickable(onClick = onClick)
-                .padding(horizontal = 2.dp, vertical = 6.dp),
+                .padding(horizontal = 2.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -423,7 +423,7 @@ fun HeaderRow(locationLabel: String, expanded: Boolean, onClick: () -> Unit) {
             Text(
                 text = locationLabel,
                 color = TextDark,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -547,7 +547,7 @@ fun CurrentWeatherCard(current: com.quaderno.appmeteo.data.CurrentWeather) {
                         listOf(CardBg, CardBgSoft)
                     )
                 )
-                .padding(horizontal = 18.dp, vertical = 18.dp),
+                .padding(horizontal = 20.dp, vertical = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -555,27 +555,27 @@ fun CurrentWeatherCard(current: com.quaderno.appmeteo.data.CurrentWeather) {
                     text = "${current.temperature.toInt()}°C",
                     color = TextDark,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 54.sp,
-                    lineHeight = 56.sp
+                    fontSize = 58.sp,
+                    lineHeight = 60.sp
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = WeatherCode.description(current.weathercode),
                     color = TextSoft,
-                    fontSize = 19.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Vento: ${current.windspeed.toInt()} km/h",
                     color = TextSoft,
-                    fontSize = 17.sp
+                    fontSize = 16.sp
                 )
             }
             Text(
                 text = WeatherCode.emoji(current.weathercode),
-                fontSize = 72.sp,
-                modifier = Modifier.padding(start = 10.dp, end = 4.dp)
+                fontSize = 78.sp,
+                modifier = Modifier.padding(start = 12.dp, end = 2.dp)
             )
         }
     }
@@ -594,14 +594,14 @@ fun HourlyItem(time: String, temp: Double, code: Int) {
     ) {
         Column(
             modifier = Modifier
-                .width(86.dp)
-                .padding(vertical = 14.dp, horizontal = 10.dp),
+                .width(78.dp)
+                .padding(vertical = 12.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(hour, fontSize = 12.sp, color = TextSoft)
-            Text(WeatherCode.emoji(code), fontSize = 24.sp)
-            Text("${temp.toInt()}°", fontSize = 18.sp, fontWeight = FontWeight.Medium, color = TextDark)
+            Text(hour, fontSize = 11.sp, color = TextSoft)
+            Text(WeatherCode.emoji(code), fontSize = 22.sp)
+            Text("${temp.toInt()}°", fontSize = 17.sp, fontWeight = FontWeight.Medium, color = TextDark)
         }
     }
 }
@@ -618,7 +618,7 @@ fun DailyRow(daily: Daily, index: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp),
+            .padding(vertical = 18.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -626,12 +626,12 @@ fun DailyRow(daily: Daily, index: Int) {
             color = TextDark,
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(54.dp)
+            modifier = Modifier.width(56.dp)
         )
         Text(
             text = WeatherCode.emoji(daily.weathercode[index]),
-            fontSize = 22.sp,
-            modifier = Modifier.width(38.dp)
+            fontSize = 21.sp,
+            modifier = Modifier.width(34.dp)
         )
         Text(
             text = WeatherCode.description(daily.weathercode[index]),
@@ -639,12 +639,12 @@ fun DailyRow(daily: Daily, index: Int) {
             fontSize = 17.sp,
             modifier = Modifier
                 .weight(1f)
-                .padding(end = 8.dp),
+                .padding(end = 12.dp),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
         MinMaxColumn(label = "Min", value = "${daily.temperature_2m_min[index].toInt()}°")
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         MinMaxColumn(label = "Max", value = "${daily.temperature_2m_max[index].toInt()}°", bold = true)
     }
 }
@@ -652,7 +652,7 @@ fun DailyRow(daily: Daily, index: Int) {
 @Composable
 fun MinMaxColumn(label: String, value: String, bold: Boolean = false) {
     Column(horizontalAlignment = Alignment.End) {
-        Text(text = label, color = TextSoft, fontSize = 12.sp)
+        Text(text = label, color = TextSoft, fontSize = 11.sp)
         Text(
             text = value,
             color = TextDark,
