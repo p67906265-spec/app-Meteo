@@ -154,7 +154,7 @@
                         return;
                     }
                     radarLayers = frames.map(function (f) {
-                        return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.75, maxZoom: 12 }) };
+                        return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.75, maxZoom: 12, maxNativeZoom: 7 }) };
                     });
                     currentIndex = radarLayers.length - 1;
                     showFrame(currentIndex);

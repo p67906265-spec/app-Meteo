@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
@@ -29,7 +30,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -134,7 +137,7 @@ fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
     // Centra la mappa sulla città cercata nella scheda Meteo, se disponibile
     LaunchedEffect(pageReady, centerLat, centerLon) {
         if (!pageReady || centerLat == null || centerLon == null) return@LaunchedEffect
-        webView?.evaluateJavascript("if(window.centerOn) centerOn($centerLat, $centerLon, 8);", null)
+        webView?.evaluateJavascript("if(window.centerOn) centerOn($centerLat, $centerLon, 7);", null)
     }
 
     // Scarica i frame radar in Kotlin (evita problemi di fetch/CORS dentro la WebView)
@@ -227,6 +230,9 @@ fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
 fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     var query by remember { mutableStateOf("") }
+    var searchExpanded by remember { mutableStateOf(false) }
+    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
 
     Column(
         modifier = Modifier
@@ -242,29 +248,56 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
 
         Box(modifier = Modifier.fillMaxWidth()) {
             Column {
-                // Barra di ricerca
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = {
-                        query = it
-                        viewModel.searchCity(it)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Cerca una città…") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
+                if (!searchExpanded) {
+                    // Barra compatta: risparmia spazio, si espande al tocco
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .clickable { searchExpanded = true }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Cerca una città…", color = Color.Gray, modifier = Modifier.weight(1f))
                         IconButton(onClick = onRequestLocation) {
                             Icon(Icons.Default.LocationOn, contentDescription = "Usa posizione attuale")
                         }
-                    },
-                    shape = RoundedCornerShape(16.dp),
-                    singleLine = true
-                )
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = {
+                            query = it
+                            viewModel.searchCity(it)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester),
+                        placeholder = { Text("Cerca una città…") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = {
+                                query = ""
+                                viewModel.searchCity("")
+                                focusManager.clearFocus()
+                                searchExpanded = false
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = "Chiudi ricerca")
+                            }
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        singleLine = true
+                    )
+                    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+                }
             }
 
             // Tendina risultati: fluttua sopra il contenuto sottostante invece di spingerlo giù
             androidx.compose.animation.AnimatedVisibility(
-                visible = state.searchResults.isNotEmpty(),
+                visible = searchExpanded && state.searchResults.isNotEmpty(),
                 modifier = Modifier
                     .padding(top = 60.dp)
                     .zIndex(10f),
@@ -275,6 +308,8 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
                     results = state.searchResults,
                     onSelect = { result ->
                         query = ""
+                        searchExpanded = false
+                        focusManager.clearFocus()
                         viewModel.selectCity(result)
                     }
                 )
@@ -480,7 +515,7 @@ fun DailyRow(daily: Daily, index: Int) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(dayLabel, modifier = Modifier.width(56.dp))
-        Text(WeatherCode.emoji(daily.weathercode[index]), fontSize = 20.sp, modifier = Modifier.width(40.dp))
+        Text(WeatherCode.emoji(daily.weathercode[index]), fontSize = 15.sp, modifier = Modifier.width(40.dp))
         Text(
             WeatherCode.description(daily.weathercode[index]),
             modifier = Modifier.weight(1f),
