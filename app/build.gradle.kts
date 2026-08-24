@@ -10,10 +10,10 @@ android {
 
     defaultConfig {
         applicationId = "com.quaderno.appmeteo"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
-        versionCode = 19
-        versionName = "1.37"
+        versionCode = 20
+        versionName = "1.38"
     }
 
     buildTypes {
@@ -23,19 +23,16 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
-
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
 
     buildFeatures {
         compose = true
     }
-
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
@@ -54,16 +51,12 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Rete
+    // Rete: chiamate a Open-Meteo
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-
-    // Location (opzionale, per "usa posizione attuale")
+    // Posizione
     implementation("com.google.android.gms:play-services-location:21.3.0")
-
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 }

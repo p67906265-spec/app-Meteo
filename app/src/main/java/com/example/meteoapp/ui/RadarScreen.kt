@@ -1,3 +1,58 @@
+package com.quaderno.appmeteo.ui
+
+import android.annotation.SuppressLint
+import android.webkit.WebView
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
+
+/**
+ * Pagina "Radar": mostra le nuvole e le precipitazioni in tempo reale (con qualche
+ * frame di previsione a breve termine) sopra una mappa OpenStreetMap, usando le tile
+ * pubbliche e gratuite di RainViewer (nessuna chiave API richiesta).
+ */
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+fun RadarScreen(latitude: Double, longitude: Double, modifier: Modifier = Modifier) {
+    AndroidView(
+        modifier = modifier.fillMaxSize(),
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                webViewClient = android.webkit.WebViewClient()
+
+                // Inietta la posizione dell'utente prima di caricare la pagina,
+                // così la mappa parte già centrata sul posto giusto.
+                addJavascriptInterface(this, "AndroidBridge")
+
+                loadDataWithBaseURL(
+                    "https://appassets.androidplatform.net",
+                    buildInjectedHtml(latitude, longitude),
+                    "text/html",
+                    "UTF-8",
+                    null
+                )
+            }
+        }
+    )
+}
+
+/**
+ * Legge assets/radar.html e inietta le coordinate iniziali come variabili globali JS,
+ * evitando di dover passare per un bridge JS più complesso.
+ */
+private fun buildInjectedHtml(latitude: Double, longitude: Double): String {
+    val script = "<script>window.START_LAT=$latitude; window.START_LON=$longitude;</script>"
+    return RADAR_HTML_TEMPLATE.replace("<!--INJECT-->", script)
+}
+
+// Il contenuto è lo stesso di assets/radar.html: qui viene duplicato come stringa
+// per poter iniettare lat/lon senza un secondo giro di caricamento file.
+// In alternativa si può caricare "file:///android_asset/radar.html" direttamente
+// e passare le coordinate via evaluateJavascript dopo onPageFinished.
+private const val RADAR_HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -13,6 +68,7 @@
     z-index:1000; pointer-events:none;
   }
 </style>
+<!--INJECT-->
 </head>
 <body>
 <div id="map"></div>
@@ -20,7 +76,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  // Mappa base OpenStreetMap, centrata sulla posizione passata da Android (o su Roma di default)
   var startLat = window.START_LAT || 41.9028;
   var startLon = window.START_LON || 12.4964;
 
@@ -51,7 +106,6 @@
       (frame.isForecast ? 'Previsione ' : 'Radar ') + label;
   }
 
-  // Scarica i frame radar (passati + previsione) da RainViewer, API pubblica gratuita
   fetch('https://api.rainviewer.com/public/weather-maps.json')
     .then(function(res){ return res.json(); })
     .then(function(data){
@@ -61,7 +115,6 @@
       currentFrame = past.length > 0 ? past.length - 1 : 0;
       showFrame(currentFrame);
 
-      // Animazione automatica del radar (loop tra gli ultimi frame)
       setInterval(function(){
         currentFrame = (currentFrame + 1) % frames.length;
         showFrame(currentFrame);
@@ -73,3 +126,4 @@
 </script>
 </body>
 </html>
+"""
