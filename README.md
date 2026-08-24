@@ -44,3 +44,7 @@ salvate offline in questa versione base).
 - Salvare l'ultima posizione/i dati meteo in cache per l'avvio offline.
 - Aggiungere un controllo manuale per scorrere avanti/indietro tra i
   frame del radar invece della sola animazione automatica.
+
+
+## v1.40
+Correzione crash all’avvio: gestione permesso posizione tramite rememberLauncherForActivityResult.
