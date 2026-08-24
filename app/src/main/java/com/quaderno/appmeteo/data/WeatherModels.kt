@@ -1,51 +1,58 @@
 package com.quaderno.appmeteo.data
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
-data class ForecastResponse(
-    val latitude: Double,
-    val longitude: Double,
-    val timezone: String,
-    val current: CurrentWeather?,
-    val hourly: Hourly?,
-    val daily: Daily?
+@Serializable
+data class OpenMeteoResponse(
+    @SerialName("current_weather") val currentWeather: CurrentWeather,
+    val hourly: HourlyData,
+    val daily: DailyData
 )
 
+@Serializable
 data class CurrentWeather(
-    val time: String,
-    @SerializedName("temperature_2m") val temperature: Double,
-    @SerializedName("apparent_temperature") val apparentTemperature: Double?,
-    @SerializedName("relative_humidity_2m") val humidity: Int?,
-    @SerializedName("weather_code") val weathercode: Int,
-    @SerializedName("wind_speed_10m") val windspeed: Double,
-    @SerializedName("wind_direction_10m") val windDirection: Int?,
-    @SerializedName("surface_pressure") val pressure: Double?,
-    @SerializedName("is_day") val isDay: Int?
+    val temperature: Double,
+    val windspeed: Double,
+    val weathercode: Int,
+    val time: String
 )
 
-data class Hourly(
+@Serializable
+data class HourlyData(
     val time: List<String>,
-    val temperature_2m: List<Double>,
-    @SerializedName("weather_code") val weathercode: List<Int>
+    @SerialName("temperature_2m") val temperature2m: List<Double>,
+    @SerialName("weathercode") val weatherCode: List<Int>
 )
 
-data class Daily(
+@Serializable
+data class DailyData(
     val time: List<String>,
-    @SerializedName("weather_code") val weathercode: List<Int>,
-    val temperature_2m_max: List<Double>,
-    val temperature_2m_min: List<Double>,
-    val precipitation_probability_max: List<Int>?
+    @SerialName("weathercode") val weatherCode: List<Int>,
+    @SerialName("temperature_2m_max") val tempMax: List<Double>,
+    @SerialName("temperature_2m_min") val tempMin: List<Double>
 )
 
-data class GeocodingResponse(
-    val results: List<GeoResult>?
-)
+/** Condizione meteo leggibile, ricavata dal codice WMO restituito da Open-Meteo. */
+enum class Condition { SOLE, POCO_NUVOLOSO, NUVOLOSO, PIOGGIA, TEMPORALE, NEVE, NEBBIA }
 
-data class GeoResult(
-    val id: Long,
-    val name: String,
-    val latitude: Double,
-    val longitude: Double,
-    val country: String?,
-    val admin1: String?
-)
+fun weatherCodeToCondition(code: Int): Condition = when (code) {
+    0 -> Condition.SOLE
+    1, 2 -> Condition.POCO_NUVOLOSO
+    3 -> Condition.NUVOLOSO
+    45, 48 -> Condition.NEBBIA
+    51, 53, 55, 61, 63, 65, 80, 81, 82 -> Condition.PIOGGIA
+    71, 73, 75, 77, 85, 86 -> Condition.NEVE
+    95, 96, 99 -> Condition.TEMPORALE
+    else -> Condition.NUVOLOSO
+}
+
+fun Condition.label(): String = when (this) {
+    Condition.SOLE -> "Sereno"
+    Condition.POCO_NUVOLOSO -> "Poco nuvoloso"
+    Condition.NUVOLOSO -> "Coperto"
+    Condition.PIOGGIA -> "Pioggia"
+    Condition.TEMPORALE -> "Temporale"
+    Condition.NEVE -> "Neve"
+    Condition.NEBBIA -> "Nebbia"
+}
