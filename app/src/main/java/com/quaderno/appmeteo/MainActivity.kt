@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
+import com.quaderno.appmeteo.data.CurrentWeather
 import com.quaderno.appmeteo.data.Daily
 import com.quaderno.appmeteo.data.ForecastResponse
 import com.quaderno.appmeteo.data.GeoResult
@@ -82,13 +83,15 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-private val ScreenBg = Color(0xFFF7F4FA)
-private val CardBg = Color(0xFFF0EAF5)
-private val CardBgSoft = Color(0xFFF3EDF7)
-private val Purple = Color(0xFF7A57A9)
-private val TextDark = Color(0xFF1F1B24)
-private val TextSoft = Color(0xFF8A8490)
-private val DividerSoft = Color(0xFFD9D2DF)
+private val BgTop = Color(0xFFD9E7FF)
+private val BgMid = Color(0xFFF5F2FF)
+private val BgBottom = Color(0xFFF9F7FC)
+private val Ink = Color(0xFF17182A)
+private val Muted = Color(0xFF6F7195)
+private val Violet = Color(0xFF7762E9)
+private val VioletDark = Color(0xFF5C48D7)
+private val PaleCard = Color(0xD9FFFFFF)
+private val Line = Color(0x1F6E7191)
 
 class MainActivity : ComponentActivity() {
 
@@ -96,19 +99,14 @@ class MainActivity : ComponentActivity() {
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) fetchCurrentLocationWeather()
-    }
+    ) { granted -> if (granted) fetchCurrentLocationWeather() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = ScreenBg) {
-                    AppRoot(
-                        viewModel = viewModel,
-                        onRequestLocation = { requestLocationWeather() }
-                    )
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    AppRoot(viewModel = viewModel, onRequestLocation = { requestLocationWeather() })
                 }
             }
         }
@@ -118,26 +116,19 @@ class MainActivity : ComponentActivity() {
         val hasPermission = ContextCompat.checkSelfPermission(
             this, Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-
-        if (hasPermission) {
-            fetchCurrentLocationWeather()
-        } else {
-            locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
-        }
+        if (hasPermission) fetchCurrentLocationWeather()
+        else locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
     }
 
     @SuppressLint("MissingPermission")
     private fun fetchCurrentLocationWeather() {
-        val client = LocationServices.getFusedLocationProviderClient(this)
-        client.lastLocation.addOnSuccessListener { location ->
-            if (location != null) {
-                viewModel.loadForecast(location.latitude, location.longitude, "Posizione attuale")
-            } else {
-                viewModel.clearError()
+        LocationServices.getFusedLocationProviderClient(this)
+            .lastLocation
+            .addOnSuccessListener { location ->
+                if (location != null) {
+                    viewModel.loadForecast(location.latitude, location.longitude, "Posizione attuale")
+                }
             }
-        }.addOnFailureListener {
-            viewModel.clearError()
-        }
     }
 }
 
@@ -146,26 +137,35 @@ fun AppRoot(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     val state by viewModel.uiState.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.weight(1f)) {
-            when (selectedTab) {
-                0 -> WeatherScreen(viewModel = viewModel, onRequestLocation = onRequestLocation)
-                1 -> RadarScreen(centerLat = state.forecast?.latitude, centerLon = state.forecast?.longitude)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(BgTop, BgMid, BgBottom)))
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f)) {
+                when (selectedTab) {
+                    0 -> WeatherScreen(viewModel, onRequestLocation)
+                    else -> RadarScreen(state.forecast?.latitude, state.forecast?.longitude)
+                }
             }
-        }
-        NavigationBar(containerColor = Color(0xFFF1ECF5)) {
-            NavigationBarItem(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                icon = { Icon(Icons.Default.WbSunny, contentDescription = null) },
-                label = { Text("Meteo") }
-            )
-            NavigationBarItem(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                icon = { Icon(Icons.Default.Map, contentDescription = null) },
-                label = { Text("Radar") }
-            )
+            NavigationBar(
+                containerColor = Color(0xEFFFFFFF),
+                tonalElevation = 0.dp
+            ) {
+                NavigationBarItem(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    icon = { Icon(Icons.Default.WbSunny, null) },
+                    label = { Text("Meteo") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    icon = { Icon(Icons.Default.Map, null) },
+                    label = { Text("Radar") }
+                )
+            }
         }
     }
 }
@@ -177,8 +177,9 @@ fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
     var loadError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(pageReady, centerLat, centerLon) {
-        if (!pageReady || centerLat == null || centerLon == null) return@LaunchedEffect
-        webView?.evaluateJavascript("if(window.centerOn) centerOn($centerLat, $centerLon, 7);", null)
+        if (pageReady && centerLat != null && centerLon != null) {
+            webView?.evaluateJavascript("if(window.centerOn) centerOn($centerLat, $centerLon, 7);", null)
+        }
     }
 
     LaunchedEffect(pageReady) {
@@ -186,16 +187,12 @@ fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
         try {
             val response = com.quaderno.appmeteo.data.RainViewerNetwork.api.getWeatherMaps()
             val frames = response.radar.past.takeLast(8).map { frame ->
-                val url = "${response.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png"
-                mapOf("time" to frame.time, "url" to url)
+                mapOf("time" to frame.time, "url" to "${response.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png")
             }
-            val json = com.google.gson.Gson().toJson(frames)
-            val escaped = org.json.JSONObject.quote(json)
+            val escaped = org.json.JSONObject.quote(com.google.gson.Gson().toJson(frames))
             webView?.evaluateJavascript("loadFrames($escaped)", null)
         } catch (e: Exception) {
             loadError = "Radar non disponibile: ${e.message}"
-            val escaped = org.json.JSONObject.quote("Radar non disponibile: ${e.message}")
-            webView?.evaluateJavascript("showError($escaped)", null)
         }
     }
 
@@ -209,11 +206,10 @@ fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
                     settings.allowFileAccess = true
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, url: String?) {
-                            super.onPageFinished(view, url)
                             pageReady = true
                             view?.postDelayed({
                                 view.evaluateJavascript("if(window.invalidateMapSize) invalidateMapSize();", null)
-                            }, 600)
+                            }, 500)
                         }
                     }
                     loadUrl("file:///android_asset/radar.html?v=" + System.currentTimeMillis())
@@ -221,15 +217,9 @@ fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
                 }
             }
         )
-
-        loadError?.let { message ->
-            Card(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Text(message, modifier = Modifier.padding(12.dp), fontSize = 13.sp)
+        loadError?.let {
+            Card(modifier = Modifier.align(Alignment.TopCenter).padding(12.dp)) {
+                Text(it, modifier = Modifier.padding(12.dp))
             }
         }
     }
@@ -239,7 +229,7 @@ fun RadarScreen(centerLat: Double? = null, centerLon: Double? = null) {
 fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }
-    var panelExpanded by rememberSaveable { mutableStateOf(false) }
+    var locationExpanded by rememberSaveable { mutableStateOf(false) }
     var requestedOnce by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -250,116 +240,184 @@ fun WeatherScreen(viewModel: WeatherViewModel, onRequestLocation: () -> Unit) {
     }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ScreenBg),
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp)) {
-                HeaderRow(
-                    locationLabel = state.cityName.ifBlank { "Posizione attuale" },
-                    expanded = panelExpanded,
-                    onClick = { panelExpanded = !panelExpanded }
-                )
-            }
+            TopHeader(
+                locationLabel = state.cityName.ifBlank { "Posizione attuale" },
+                onToggleLocation = { locationExpanded = !locationExpanded }
+            )
         }
 
         item {
-            AnimatedVisibility(visible = panelExpanded) {
-                SearchPanel(
+            AnimatedVisibility(locationExpanded) {
+                LocationPanel(
                     query = query,
                     onQueryChange = {
                         query = it
                         viewModel.searchCity(it)
                     },
-                    searchResults = state.searchResults,
-                    onUseCurrentLocation = {
-                        panelExpanded = false
+                    results = state.searchResults,
+                    onCurrent = {
                         query = ""
+                        locationExpanded = false
                         viewModel.searchCity("")
                         onRequestLocation()
                     },
-                    onSelectCity = { city ->
-                        panelExpanded = false
+                    onSelect = {
                         query = ""
+                        locationExpanded = false
                         viewModel.searchCity("")
-                        viewModel.selectCity(city)
+                        viewModel.selectCity(it)
                     }
                 )
             }
         }
 
         when {
-            state.isLoading && state.forecast == null -> {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 40.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = Purple)
-                    }
+            state.isLoading && state.forecast == null -> item {
+                Box(Modifier.fillMaxWidth().padding(top = 72.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Violet)
                 }
             }
-            state.error != null && state.forecast == null -> {
-                item {
-                    Text(
-                        text = state.error ?: "",
-                        color = Color.Red,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
+            state.error != null && state.forecast == null -> item {
+                Text(state.error ?: "", color = Color.Red, modifier = Modifier.padding(horizontal = 20.dp))
             }
-            state.forecast != null -> {
-                weatherItems(state.forecast!!)
-            }
-            else -> {
-                item {
-                    Text(
-                        text = "Tocca Posizione attuale per usare il GPS o cercare una città.",
-                        color = TextSoft,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
+            state.forecast != null -> weatherContent(state.forecast!!)
+            else -> item {
+                Text(
+                    "Tocca Posizione attuale per scegliere la città.",
+                    color = Muted,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
             }
         }
-
-        item { Spacer(modifier = Modifier.height(4.dp)) }
+        item { Spacer(Modifier.height(6.dp)) }
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.weatherItems(forecast: ForecastResponse) {
-    val current = forecast.currentWeather
-    if (current != null) {
-        item {
-            CurrentWeatherCard(current = current)
+@Composable
+private fun TopHeader(locationLabel: String, onToggleLocation: () -> Unit) {
+    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Meteo", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Ink)
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0x9AFFFFFF)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("☰", color = Ink, fontSize = 22.sp)
+            }
         }
+        Spacer(Modifier.height(14.dp))
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xB3FFFFFF))
+                .clickable(onClick = onToggleLocation)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.LocationOn, null, tint = Violet, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                locationLabel,
+                color = Color(0xFF4F4D7A),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Default.KeyboardArrowDown, null, tint = Color(0xFF4F4D7A), modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+@Composable
+private fun LocationPanel(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    results: List<GeoResult>,
+    onCurrent: () -> Unit,
+    onSelect: (GeoResult) -> Unit
+) {
+    Card(
+        modifier = Modifier.padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xEFFFFFFF))
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(18.dp),
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                trailingIcon = {
+                    if (query.isNotBlank()) {
+                        IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Default.Close, null) }
+                    }
+                },
+                placeholder = { Text("Cerca una città…") }
+            )
+            OutlinedButton(onClick = onCurrent, shape = RoundedCornerShape(16.dp)) {
+                Icon(Icons.Default.LocationOn, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Usa posizione attuale")
+            }
+            if (results.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 250.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    LazyColumn {
+                        itemsIndexed(results) { index, result ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSelect(result) }
+                                    .padding(12.dp)
+                            ) {
+                                Text(result.name, fontWeight = FontWeight.SemiBold)
+                                Text(listOfNotNull(result.admin1, result.country).joinToString(", "), color = Muted, fontSize = 12.sp)
+                            }
+                            if (index < results.lastIndex) HorizontalDivider(color = Line)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.weatherContent(forecast: ForecastResponse) {
+    forecast.current?.let { current ->
+        item { HeroWeatherCard(current) }
     }
 
     forecast.hourly?.let { hourly ->
         item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Text(
-                    text = "Prossime ore",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextDark,
-                    modifier = Modifier.padding(bottom = 10.dp)
-                )
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Prossime ore", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Ink)
+                    Text("Vedi tutte", color = VioletDark, fontSize = 14.sp)
+                }
+                Spacer(Modifier.height(10.dp))
                 val now = LocalDateTime.now()
-                val startIndex = hourly.time.indexOfFirst { t ->
-                    runCatching { LocalDateTime.parse(t).isAfter(now) }.getOrDefault(false)
-                }.let { if (it == -1) 0 else it }
-                val endIndex = minOf(hourly.time.size, startIndex + 12)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items((startIndex until endIndex).toList()) { index ->
-                        HourlyItem(
-                            time = hourly.time[index],
-                            temp = hourly.temperature_2m[index],
-                            code = hourly.weathercode[index]
-                        )
+                val start = hourly.time.indexOfFirst { t -> runCatching { LocalDateTime.parse(t).isAfter(now) }.getOrDefault(false) }.let { if (it < 0) 0 else it }
+                val end = minOf(hourly.time.size, start + 12)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items((start until end).toList()) { i ->
+                        HourCard(hourly.time[i], hourly.temperature_2m[i], hourly.weathercode[i], i == start)
                     }
                 }
             }
@@ -368,23 +426,17 @@ private fun androidx.compose.foundation.lazy.LazyListScope.weatherItems(forecast
 
     forecast.daily?.let { daily ->
         item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Text(
-                    text = "Prossimi giorni",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextDark,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
-                )
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.Transparent)
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Text("Prossimi giorni", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Ink)
+                Spacer(Modifier.height(10.dp))
+                Card(
+                    shape = RoundedCornerShape(26.dp),
+                    colors = CardDefaults.cardColors(containerColor = PaleCard)
                 ) {
-                    daily.time.indices.forEach { index ->
-                        DailyRow(daily = daily, index = index)
-                        if (index < daily.time.lastIndex) {
-                            HorizontalDivider(color = DividerSoft, thickness = 1.dp)
+                    Column {
+                        daily.time.indices.forEach { i ->
+                            DailyForecastRow(daily, i)
+                            if (i < daily.time.lastIndex) HorizontalDivider(color = Line, modifier = Modifier.padding(horizontal = 14.dp))
                         }
                     }
                 }
@@ -394,270 +446,141 @@ private fun androidx.compose.foundation.lazy.LazyListScope.weatherItems(forecast
 }
 
 @Composable
-fun HeaderRow(locationLabel: String, expanded: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = "Meteo",
-            color = TextDark,
-            fontSize = 34.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(18.dp))
-                .clickable(onClick = onClick)
-                .padding(horizontal = 2.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.LocationOn,
-                contentDescription = null,
-                tint = Purple,
-                modifier = Modifier.size(28.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = locationLabel,
-                color = TextDark,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Icon(
-                Icons.Default.KeyboardArrowDown,
-                contentDescription = null,
-                tint = TextDark,
-                modifier = Modifier.size(26.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun SearchPanel(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    searchResults: List<GeoResult>,
-    onUseCurrentLocation: () -> Unit,
-    onSelectCity: (GeoResult) -> Unit
-) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = CardBgSoft)
-        ) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(18.dp),
-                    placeholder = { Text("Cerca una città…") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (query.isNotBlank()) {
-                            IconButton(onClick = { onQueryChange("") }) {
-                                Icon(Icons.Default.Close, contentDescription = null)
-                            }
-                        }
-                    }
-                )
-                OutlinedButton(onClick = onUseCurrentLocation, shape = RoundedCornerShape(18.dp)) {
-                    Icon(Icons.Default.LocationOn, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Usa posizione attuale")
-                }
-                if (searchResults.isNotEmpty()) {
-                    CitySearchDropdown(results = searchResults, onSelect = onSelectCity)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CitySearchDropdown(results: List<GeoResult>, onSelect: (GeoResult) -> Unit) {
+private fun HeroWeatherCard(current: CurrentWeather) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 280.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        LazyColumn {
-            itemsIndexed(results) { index, result ->
-                CityResultRow(result = result, onClick = { onSelect(result) })
-                if (index < results.lastIndex) {
-                    HorizontalDivider(color = DividerSoft, modifier = Modifier.padding(horizontal = 14.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CityResultRow(result: GeoResult, onClick: () -> Unit) {
-    val subtitle = listOfNotNull(result.admin1, result.country).joinToString(", ")
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier.padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(30.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(Purple.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Purple)
-        }
-        Spacer(modifier = Modifier.width(10.dp))
-        Column {
-            Text(result.name, color = TextDark, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-            if (subtitle.isNotBlank()) {
-                Text(subtitle, color = TextSoft, fontSize = 12.sp)
-            }
-        }
-    }
-}
-
-@Composable
-fun CurrentWeatherCard(current: com.quaderno.appmeteo.data.CurrentWeather) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Row(
-            modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Brush.verticalGradient(
-                        listOf(CardBg, CardBgSoft)
+                    Brush.linearGradient(
+                        listOf(Color(0xFF5E9DFF), Color(0xFF7D8CF4), Color(0xFFC493F0))
                     )
                 )
-                .padding(horizontal = 20.dp, vertical = 20.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(20.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${current.temperature.toInt()}°C",
-                    color = TextDark,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 58.sp,
-                    lineHeight = 60.sp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = WeatherCode.description(current.weathercode),
-                    color = TextSoft,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Vento: ${current.windspeed.toInt()} km/h",
-                    color = TextSoft,
-                    fontSize = 16.sp
-                )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Adesso", color = Color.White.copy(alpha = .9f), fontSize = 16.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "${current.temperature.toInt()}°",
+                            color = Color.White,
+                            fontSize = 70.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 72.sp
+                        )
+                        Text(
+                            WeatherCode.description(current.weathercode),
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = .28f))
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "💨  Vento ${current.windspeed.toInt()} km/h  •  ${windDirectionLabel(current.windDirection)}",
+                            color = Color.White,
+                            fontSize = 15.sp
+                        )
+                    }
+                    Text(
+                        WeatherCode.emoji(current.weathercode),
+                        fontSize = 94.sp,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MetricGlass("🌡️", "Percepita", "${(current.apparentTemperature ?: current.temperature).toInt()}°", Modifier.weight(1f))
+                    MetricGlass("💧", "Umidità", "${current.humidity ?: 0}%", Modifier.weight(1f))
+                    MetricGlass("🧭", "Pressione", "${current.pressure?.toInt() ?: 0} hPa", Modifier.weight(1f))
+                }
             }
-            Text(
-                text = WeatherCode.emoji(current.weathercode),
-                fontSize = 78.sp,
-                modifier = Modifier.padding(start = 12.dp, end = 2.dp)
-            )
         }
     }
 }
 
 @Composable
-fun HourlyItem(time: String, temp: Double, code: Int) {
+private fun MetricGlass(icon: String, label: String, value: String, modifier: Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White.copy(alpha = .13f))
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(icon, fontSize = 18.sp)
+        Text(label, color = Color.White.copy(alpha = .88f), fontSize = 11.sp)
+        Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun HourCard(time: String, temp: Double, code: Int, selected: Boolean) {
     val hour = runCatching {
-        val parsed = if (time.contains("T")) LocalTime.parse(time.substringAfter("T")) else LocalTime.parse(time)
-        parsed.format(DateTimeFormatter.ofPattern("HH:mm"))
+        val localTime = LocalTime.parse(time.substringAfter("T"))
+        localTime.format(DateTimeFormatter.ofPattern("HH:mm"))
     }.getOrDefault(time)
 
     Card(
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg)
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) Color(0xCC7B78EE) else Color(0xDFFFFFFF)
+        )
     ) {
         Column(
-            modifier = Modifier
-                .width(78.dp)
-                .padding(vertical = 12.dp, horizontal = 8.dp),
+            modifier = Modifier.width(82.dp).padding(vertical = 14.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            Text(hour, fontSize = 11.sp, color = TextSoft)
-            Text(WeatherCode.emoji(code), fontSize = 22.sp)
-            Text("${temp.toInt()}°", fontSize = 17.sp, fontWeight = FontWeight.Medium, color = TextDark)
+            Text(if (selected) "Adesso" else hour, color = if (selected) Color.White else Muted, fontSize = 12.sp)
+            Text(WeatherCode.emoji(code), fontSize = 25.sp)
+            Text("${temp.toInt()}°", color = if (selected) Color.White else Ink, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
 @Composable
-fun DailyRow(daily: Daily, index: Int) {
-    val dayLabel = runCatching {
-        LocalDate.parse(daily.time[index])
-            .dayOfWeek
-            .getDisplayName(TextStyle.SHORT, Locale.ITALIAN)
-            .replaceFirstChar { it.uppercase() }
-    }.getOrDefault(daily.time[index])
+private fun DailyForecastRow(daily: Daily, index: Int) {
+    val date = runCatching { LocalDate.parse(daily.time[index]) }.getOrNull()
+    val dayName = when (index) {
+        0 -> "Oggi"
+        1 -> "Domani"
+        else -> date?.dayOfWeek?.getDisplayName(TextStyle.FULL, Locale.ITALIAN)?.replaceFirstChar { it.uppercase() } ?: daily.time[index]
+    }
+    val dateText = date?.format(DateTimeFormatter.ofPattern("d MMM", Locale.ITALIAN)) ?: ""
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 18.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Column(modifier = Modifier.width(74.dp)) {
+            Text(dayName, color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(dateText, color = Muted, fontSize = 11.sp)
+        }
+        Text(WeatherCode.emoji(daily.weathercode[index]), fontSize = 25.sp, modifier = Modifier.width(40.dp))
         Text(
-            text = dayLabel,
-            color = TextDark,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(56.dp)
-        )
-        Text(
-            text = WeatherCode.emoji(daily.weathercode[index]),
-            fontSize = 21.sp,
-            modifier = Modifier.width(34.dp)
-        )
-        Text(
-            text = WeatherCode.description(daily.weathercode[index]),
-            color = TextSoft,
-            fontSize = 17.sp,
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = 12.dp),
-            maxLines = 2,
+            WeatherCode.description(daily.weathercode[index]),
+            color = Muted,
+            fontSize = 13.sp,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        MinMaxColumn(label = "Min", value = "${daily.temperature_2m_min[index].toInt()}°")
-        Spacer(modifier = Modifier.width(14.dp))
-        MinMaxColumn(label = "Max", value = "${daily.temperature_2m_max[index].toInt()}°", bold = true)
+        Text("Min ${daily.temperature_2m_min[index].toInt()}°", color = Color(0xFF888BD6), fontSize = 11.sp)
+        Spacer(Modifier.width(10.dp))
+        Text("Max ${daily.temperature_2m_max[index].toInt()}°", color = VioletDark, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
-@Composable
-fun MinMaxColumn(label: String, value: String, bold: Boolean = false) {
-    Column(horizontalAlignment = Alignment.End) {
-        Text(text = label, color = TextSoft, fontSize = 11.sp)
-        Text(
-            text = value,
-            color = TextDark,
-            fontSize = 18.sp,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal
-        )
-    }
+private fun windDirectionLabel(deg: Int?): String {
+    if (deg == null) return "--"
+    val dirs = listOf("N", "NE", "E", "SE", "S", "SO", "O", "NO")
+    val index = (((deg + 22.5) / 45.0).toInt()) % 8
+    return dirs[index]
 }
