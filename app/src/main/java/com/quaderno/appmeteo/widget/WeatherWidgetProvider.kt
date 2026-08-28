@@ -28,7 +28,9 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == ACTION_REFRESH) updateAll(context)
+        if (intent.action == ACTION_REFRESH || intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
+            updateAll(context)
+        }
     }
 
     companion object {
@@ -42,45 +44,39 @@ class WeatherWidgetProvider : AppWidgetProvider() {
 
         private fun updateOne(context: Context, manager: AppWidgetManager, id: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_weather_2x1)
-            val cached = WeatherCache.read(context)
+            val data = WeatherCache.read(context)
+            val now = LocalDateTime.now()
 
             val launch = PendingIntent.getActivity(
-                context, 1000 + id,
+                context,
+                1000 + id,
                 Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             views.setOnClickPendingIntent(R.id.widget_root, launch)
 
-            if (cached == null) {
-                views.setTextViewText(R.id.widget_city, "Apri Meteo")
+            views.setTextViewText(R.id.widget_hour_1, now.format(DateTimeFormatter.ofPattern("HH")))
+            views.setTextViewText(R.id.widget_hour_2, now.format(DateTimeFormatter.ofPattern("mm")))
+            views.setTextViewText(
+                R.id.widget_date,
+                now.format(DateTimeFormatter.ofPattern("d/M EEE", Locale.ITALIAN))
+            )
+
+            if (data == null) {
                 views.setTextViewText(R.id.widget_temperature, "--°")
-                views.setTextViewText(R.id.widget_condition, "Nessun dato")
+                views.setTextViewText(R.id.widget_condition, "Apri Meteo")
                 views.setTextViewText(R.id.widget_minmax, "--° / --°")
-                views.setTextViewText(R.id.widget_date, "--")
                 views.setTextViewText(R.id.widget_location, "Posizione")
                 views.setTextViewText(R.id.widget_weather_icon, "☀️")
             } else {
-                val forecast = cached.forecast
-                val current = forecast.currentWeather
-                val daily = forecast.daily
-                val temp = current?.temperature?.roundToInt()
-                val code = current?.weathercode ?: -1
-                val min = daily?.temperature_2m_min?.firstOrNull()?.roundToInt()
-                val max = daily?.temperature_2m_max?.firstOrNull()?.roundToInt()
-
-                val now = try {
-                    LocalDateTime.parse(current?.time ?: "")
-                } catch (_: Exception) { null }
-
-                views.setTextViewText(R.id.widget_temperature, "${temp ?: "--"}°")
-                views.setTextViewText(R.id.widget_condition, WeatherCode.description(code))
-                views.setTextViewText(R.id.widget_weather_icon, WeatherCode.emoji(code))
-                views.setTextViewText(R.id.widget_minmax, "${min ?: "--"}° / ${max ?: "--"}°")
-                views.setTextViewText(
-                    R.id.widget_date,
-                    now?.format(DateTimeFormatter.ofPattern("d/M EEE", Locale.ITALIAN)) ?: "--"
-                )
-                views.setTextViewText(R.id.widget_location, cached.cityName.substringBefore(","))
+                val temp = data.temperature.roundToInt()
+                val min = data.min?.roundToInt()?.toString() ?: "--"
+                val max = data.max?.roundToInt()?.toString() ?: "--"
+                views.setTextViewText(R.id.widget_temperature, "$temp°")
+                views.setTextViewText(R.id.widget_condition, data.condition.ifBlank { WeatherCode.description(data.weatherCode) })
+                views.setTextViewText(R.id.widget_minmax, "$min° / $max°")
+                views.setTextViewText(R.id.widget_location, data.city.substringBefore(",").ifBlank { "Posizione attuale" })
+                views.setTextViewText(R.id.widget_weather_icon, WeatherCode.emoji(data.weatherCode))
             }
 
             manager.updateAppWidget(id, views)

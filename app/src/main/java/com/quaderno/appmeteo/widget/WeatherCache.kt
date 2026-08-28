@@ -1,39 +1,59 @@
 package com.quaderno.appmeteo.widget
 
 import android.content.Context
-import com.google.gson.Gson
-import com.quaderno.appmeteo.data.ForecastResponse
 
-/** Cache condivisa tra app e widget. Il widget legge gli ultimi dati caricati dall'app. */
+/**
+ * Cache minimale condivisa tra app e widget.
+ * Non dipende da Gson o dai modelli dell'app: salva solo i valori necessari al widget.
+ */
 object WeatherCache {
-    private const val PREFS = "weather_cache"
-    private const val KEY_FORECAST = "forecast_json"
-    private const val KEY_CITY = "city_name"
-    private val gson = Gson()
+    private const val PREFS = "weather_widget_cache"
+    private const val CITY = "city"
+    private const val TEMP = "temp"
+    private const val CODE = "code"
+    private const val MIN = "min"
+    private const val MAX = "max"
+    private const val CONDITION = "condition"
 
-    fun save(context: Context, forecast: ForecastResponse, cityName: String) {
+    fun save(
+        context: Context,
+        city: String,
+        temperature: Double,
+        weatherCode: Int,
+        min: Double?,
+        max: Double?,
+        condition: String
+    ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putString(KEY_FORECAST, gson.toJson(forecast))
-            .putString(KEY_CITY, cityName)
+            .putString(CITY, city)
+            .putFloat(TEMP, temperature.toFloat())
+            .putInt(CODE, weatherCode)
+            .putString(MIN, min?.toString())
+            .putString(MAX, max?.toString())
+            .putString(CONDITION, condition)
             .apply()
     }
 
-    fun read(context: Context): CachedWeather? {
+    data class Data(
+        val city: String,
+        val temperature: Float,
+        val weatherCode: Int,
+        val min: Float?,
+        val max: Float?,
+        val condition: String
+    )
+
+    fun read(context: Context): Data? {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val json = prefs.getString(KEY_FORECAST, null) ?: return null
-        return try {
-            CachedWeather(
-                forecast = gson.fromJson(json, ForecastResponse::class.java),
-                cityName = prefs.getString(KEY_CITY, "Posizione attuale") ?: "Posizione attuale"
-            )
-        } catch (_: Exception) {
-            null
-        }
+        if (!prefs.contains(TEMP)) return null
+        return Data(
+            city = prefs.getString(CITY, "Posizione attuale") ?: "Posizione attuale",
+            temperature = prefs.getFloat(TEMP, Float.NaN),
+            weatherCode = prefs.getInt(CODE, -1),
+            min = prefs.getString(MIN, null)?.toFloatOrNull(),
+            max = prefs.getString(MAX, null)?.toFloatOrNull(),
+            condition = prefs.getString(CONDITION, "") ?: ""
+        )
     }
 }
-
-data class CachedWeather(
-    val forecast: ForecastResponse,
-    val cityName: String
-)
