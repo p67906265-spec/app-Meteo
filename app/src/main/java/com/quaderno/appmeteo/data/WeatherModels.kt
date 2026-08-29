@@ -1,16 +1,16 @@
 package com.quaderno.appmeteo.data
 
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import com.google.gson.annotations.SerializedName
 
-@Serializable
-data class OpenMeteoResponse(
-    @SerialName("current_weather") val currentWeather: CurrentWeather,
-    val hourly: HourlyData,
-    val daily: DailyData
+data class ForecastResponse(
+    val latitude: Double,
+    val longitude: Double,
+    val timezone: String,
+    @SerializedName("current_weather") val currentWeather: CurrentWeather?,
+    val hourly: Hourly?,
+    val daily: Daily?
 )
 
-@Serializable
 data class CurrentWeather(
     val temperature: Double,
     val windspeed: Double,
@@ -18,41 +18,31 @@ data class CurrentWeather(
     val time: String
 )
 
-@Serializable
-data class HourlyData(
+data class Hourly(
     val time: List<String>,
-    @SerialName("temperature_2m") val temperature2m: List<Double>,
-    @SerialName("weathercode") val weatherCode: List<Int>
+    val temperature_2m: List<Double>,
+    val weathercode: List<Int>
 )
 
-@Serializable
-data class DailyData(
+data class Daily(
     val time: List<String>,
-    @SerialName("weathercode") val weatherCode: List<Int>,
-    @SerialName("temperature_2m_max") val tempMax: List<Double>,
-    @SerialName("temperature_2m_min") val tempMin: List<Double>
+    val weathercode: List<Int>,
+    val temperature_2m_max: List<Double>,
+    val temperature_2m_min: List<Double>,
+    val precipitation_probability_max: List<Int>?
 )
 
-/** Condizione meteo leggibile, ricavata dal codice WMO restituito da Open-Meteo. */
-enum class Condition { SOLE, POCO_NUVOLOSO, NUVOLOSO, PIOGGIA, TEMPORALE, NEVE, NEBBIA }
+// --- Geocoding ---
 
-fun weatherCodeToCondition(code: Int): Condition = when (code) {
-    0 -> Condition.SOLE
-    1, 2 -> Condition.POCO_NUVOLOSO
-    3 -> Condition.NUVOLOSO
-    45, 48 -> Condition.NEBBIA
-    51, 53, 55, 61, 63, 65, 80, 81, 82 -> Condition.PIOGGIA
-    71, 73, 75, 77, 85, 86 -> Condition.NEVE
-    95, 96, 99 -> Condition.TEMPORALE
-    else -> Condition.NUVOLOSO
-}
+data class GeocodingResponse(
+    val results: List<GeoResult>?
+)
 
-fun Condition.label(): String = when (this) {
-    Condition.SOLE -> "Sereno"
-    Condition.POCO_NUVOLOSO -> "Poco nuvoloso"
-    Condition.NUVOLOSO -> "Coperto"
-    Condition.PIOGGIA -> "Pioggia"
-    Condition.TEMPORALE -> "Temporale"
-    Condition.NEVE -> "Neve"
-    Condition.NEBBIA -> "Nebbia"
-}
+data class GeoResult(
+    val id: Long,
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
+    val country: String?,
+    val admin1: String?
+)

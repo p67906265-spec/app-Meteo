@@ -10,10 +10,10 @@ android {
 
     defaultConfig {
         applicationId = "com.quaderno.appmeteo"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 34
-        versionCode = 23
-        versionName = "1.41"
+        versionCode = 1
+        versionName = "1.0"
     }
 
     buildTypes {
@@ -23,16 +23,18 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
+
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = "1.8"
     }
 
     buildFeatures {
         compose = true
     }
+
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
@@ -51,12 +53,14 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Rete: chiamate a Open-Meteo
+    // Rete
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.11.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
-    // Posizione
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Location (opzionale, per "usa posizione attuale")
     implementation("com.google.android.gms:play-services-location:21.3.0")
 }

@@ -2,12 +2,17 @@ package com.quaderno.appmeteo.widget
 
 import android.content.Context
 
-/**
- * Cache minimale condivisa tra app e widget.
- * Non dipende da Gson o dai modelli dell'app: salva solo i valori necessari al widget.
- */
+data class WeatherWidgetData(
+    val city: String,
+    val temperature: Int,
+    val weatherCode: Int,
+    val min: Int,
+    val max: Int,
+    val condition: String
+)
+
 object WeatherCache {
-    private const val PREFS = "weather_widget_cache"
+    private const val PREFS = "weather_widget"
     private const val CITY = "city"
     private const val TEMP = "temp"
     private const val CODE = "code"
@@ -20,40 +25,30 @@ object WeatherCache {
         city: String,
         temperature: Double,
         weatherCode: Int,
-        min: Double?,
-        max: Double?,
+        min: Double,
+        max: Double,
         condition: String
     ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(CITY, city)
-            .putFloat(TEMP, temperature.toFloat())
+            .putInt(TEMP, temperature.toInt())
             .putInt(CODE, weatherCode)
-            .putString(MIN, min?.toString())
-            .putString(MAX, max?.toString())
+            .putInt(MIN, min.toInt())
+            .putInt(MAX, max.toInt())
             .putString(CONDITION, condition)
             .apply()
     }
 
-    data class Data(
-        val city: String,
-        val temperature: Float,
-        val weatherCode: Int,
-        val min: Float?,
-        val max: Float?,
-        val condition: String
-    )
-
-    fun read(context: Context): Data? {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (!prefs.contains(TEMP)) return null
-        return Data(
-            city = prefs.getString(CITY, "Posizione attuale") ?: "Posizione attuale",
-            temperature = prefs.getFloat(TEMP, Float.NaN),
-            weatherCode = prefs.getInt(CODE, -1),
-            min = prefs.getString(MIN, null)?.toFloatOrNull(),
-            max = prefs.getString(MAX, null)?.toFloatOrNull(),
-            condition = prefs.getString(CONDITION, "") ?: ""
+    fun read(context: Context): WeatherWidgetData {
+        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return WeatherWidgetData(
+            city = p.getString(CITY, "Meteo") ?: "Meteo",
+            temperature = p.getInt(TEMP, 0),
+            weatherCode = p.getInt(CODE, 0),
+            min = p.getInt(MIN, 0),
+            max = p.getInt(MAX, 0),
+            condition = p.getString(CONDITION, "Nessun dato") ?: "Nessun dato"
         )
     }
 }
