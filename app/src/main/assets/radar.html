@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Radar</title>
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; }
+        #map {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #333;
+        }
+        .leaflet-tile { opacity: 1 !important; }
+        #controls {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.6); color: #fff; padding: 8px 14px; border-radius: 20px;
+            font-family: sans-serif; font-size: 13px; display: flex; align-items: center; gap: 10px;
+            z-index: 1000;
+        }
+        #controls button {
+            background: #fff; border: none; border-radius: 50%; width: 32px; height: 32px;
+            font-size: 14px; cursor: pointer;
+        }
+        #attribution {
+            position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.5);
+            color: #fff; font-family: sans-serif; font-size: 10px; padding: 3px 6px; border-radius: 6px;
+            z-index: 1000;
+        }
+        #status { display: none; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="status" style="display:none;"></div>
+<div id="controls">
+    <button id="playPause">⏸</button>
+    <span id="frameTime">--:--</span>
+</div>
+<div id="attribution">Radar: RainViewer.com</div>
+
+<script src="leaflet/leaflet.js"></script>
+<script>
+    var statusEl = document.getElementById('status');
+    var statusLines = [];
+    function log(msg) {
+        // Diagnostica disattivata: la pagina radar funziona correttamente,
+        // il pannello di debug non serve più. Per riattivarlo in futuro,
+        // basta ripristinare il corpo di questa funzione.
+    }
+
+    // Cattura anche gli errori JS non gestiti, altrimenti la pagina resta muta
+    window.onerror = function (message, source, lineno, colno, error) {
+        log('JS ERROR: ' + message + ' (riga ' + lineno + ')');
+        return false;
+    };
+
+    log('typeof L = ' + typeof L);
+
+    if (typeof L === 'undefined') {
+        log('ERRORE: leaflet.js non si e caricato. Controlla assets/leaflet/leaflet.js');
+    } else {
+        try {
+            var map = L.map('map', { zoomControl: true, fadeAnimation: false, zoomAnimation: false }).setView([41.9, 12.5], 5);
+            log('Mappa Leaflet inizializzata OK');
+
+            var baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 12
+            });
+
+            var baseTilesLoaded = 0;
+            var baseTilesErrored = 0;
+            baseLayer.on('tileload', function () {
+                baseTilesLoaded++;
+            });
+            baseLayer.on('tileerror', function (e) {
+                baseTilesErrored++;
+                log('ERRORE tile base (' + baseTilesErrored + '): rete/DNS verso tile.openstreetmap.org?');
+            });
+            baseLayer.addTo(map);
+
+            // Fix: dentro Jetpack Compose la WebView spesso non ha ancora le dimensioni
+            // finali quando la mappa si inizializza, quindi Leaflet calcola un'area
+            // visibile troppo piccola. Forziamo un ricalcolo a intervalli.
+            function forceResize(label) {
+                map.invalidateSize();
+                log('invalidateSize (' + label + ') - dimensioni mappa: ' + map.getSize().x + 'x' + map.getSize().y);
+            }
+            setTimeout(function () { forceResize('300ms'); }, 300);
+            setTimeout(function () { forceResize('800ms'); }, 800);
+            setTimeout(function () { forceResize('1500ms'); }, 1500);
+            window.addEventListener('resize', function () { forceResize('window-resize'); });
+            window.invalidateMapSize = function () { forceResize('kotlin'); };
+
+            var radarLayers = [];
+            var currentIndex = 0;
+            var playing = true;
+            var timer = null;
+
+            window.centerOn = function (lat, lon, zoom) {
+                map.setView([lat, lon], zoom || 8);
+            };
+
+            function frameTimeLabel(unixTs) {
+                var d = new Date(unixTs * 1000);
+                var hh = d.getHours().toString().padStart(2, '0');
+                var mm = d.getMinutes().toString().padStart(2, '0');
+                return hh + ':' + mm;
+            }
+
+            function showFrame(index) {
+                if (radarLayers.length === 0) return;
+                radarLayers.forEach(function (l) { map.removeLayer(l.layer); });
+                var frame = radarLayers[index];
+                frame.layer.addTo(map);
+                document.getElementById('frameTime').innerText = frameTimeLabel(frame.time);
+                log('▶ frame ' + (index + 1) + '/' + radarLayers.length + ' - ore ' + frameTimeLabel(frame.time));
+            }
+
+            function nextFrame() {
+                currentIndex = (currentIndex + 1) % radarLayers.length;
+                showFrame(currentIndex);
+            }
+
+            function startAnimation() {
+                if (timer) clearInterval(timer);
+                timer = setInterval(nextFrame, 700);
+                playing = true;
+                document.getElementById('playPause').innerText = '⏸';
+            }
+
+            function stopAnimation() {
+                if (timer) clearInterval(timer);
+                playing = false;
+                document.getElementById('playPause').innerText = '▶';
+            }
+
+            document.getElementById('playPause').addEventListener('click', function () {
+                if (playing) stopAnimation(); else startAnimation();
+            });
+
+            window.loadFrames = function (framesJson) {
+                try {
+                    log('loadFrames chiamata, lunghezza JSON: ' + framesJson.length);
+                    var frames = JSON.parse(framesJson);
+                    if (!frames || frames.length === 0) {
+                        log('Nessun frame radar ricevuto da Kotlin');
+                        return;
+                    }
+                    radarLayers = frames.map(function (f) {
+                        return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.75, maxZoom: 12, maxNativeZoom: 7 }) };
+                    });
+                    currentIndex = radarLayers.length - 1;
+                    showFrame(currentIndex);
+                    startAnimation();
+                    log('Radar caricato: ' + frames.length + ' frame');
+                } catch (e) {
+                    log('ERRORE loadFrames: ' + e.message);
+                }
+            };
+
+            window.showError = function (message) {
+                log('KOTLIN: ' + message);
+            };
+        } catch (e) {
+            log('ERRORE init mappa: ' + e.message);
+        }
+    }
+</script>
+</body>
+</html>
