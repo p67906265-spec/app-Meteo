@@ -6,7 +6,13 @@
     <title>Radar</title>
     <link rel="stylesheet" href="leaflet/leaflet.css" />
     <style>
-        html, body, #map { height: 100%; margin: 0; padding: 0; background: #333; }
+        html, body { margin: 0; padding: 0; height: 100%; }
+        #map {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #333;
+        }
+        .leaflet-tile { opacity: 1 !important; }
         #controls {
             position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.6); color: #fff; padding: 8px 14px; border-radius: 20px;
@@ -22,16 +28,12 @@
             color: #fff; font-family: sans-serif; font-size: 10px; padding: 3px 6px; border-radius: 6px;
             z-index: 1000;
         }
-        #status {
-            position: absolute; top: 8px; left: 8px; right: 100px; background: rgba(0,0,0,0.75);
-            color: #0f0; font-family: monospace; font-size: 11px; padding: 6px 8px; border-radius: 6px;
-            z-index: 2000; white-space: pre-wrap;
-        }
+        #status { display: none; }
     </style>
 </head>
 <body>
 <div id="map"></div>
-<div id="status">Avvio…</div>
+<div id="status" style="display:none;"></div>
 <div id="controls">
     <button id="playPause">⏸</button>
     <span id="frameTime">--:--</span>
@@ -43,9 +45,9 @@
     var statusEl = document.getElementById('status');
     var statusLines = [];
     function log(msg) {
-        statusLines.push(msg);
-        if (statusLines.length > 8) statusLines.shift();
-        statusEl.innerText = statusLines.join('\n');
+        // Diagnostica disattivata: la pagina radar funziona correttamente,
+        // il pannello di debug non serve più. Per riattivarlo in futuro,
+        // basta ripristinare il corpo di questa funzione.
     }
 
     // Cattura anche gli errori JS non gestiti, altrimenti la pagina resta muta
@@ -60,7 +62,7 @@
         log('ERRORE: leaflet.js non si e caricato. Controlla assets/leaflet/leaflet.js');
     } else {
         try {
-            var map = L.map('map', { zoomControl: true }).setView([41.9, 12.5], 6);
+            var map = L.map('map', { zoomControl: true, fadeAnimation: false, zoomAnimation: false }).setView([41.9, 12.5], 5);
             log('Mappa Leaflet inizializzata OK');
 
             var baseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -72,13 +74,25 @@
             var baseTilesErrored = 0;
             baseLayer.on('tileload', function () {
                 baseTilesLoaded++;
-                log('Tile base OK: ' + baseTilesLoaded + ' caricate, ' + baseTilesErrored + ' errori');
             });
             baseLayer.on('tileerror', function (e) {
                 baseTilesErrored++;
                 log('ERRORE tile base (' + baseTilesErrored + '): rete/DNS verso tile.openstreetmap.org?');
             });
             baseLayer.addTo(map);
+
+            // Fix: dentro Jetpack Compose la WebView spesso non ha ancora le dimensioni
+            // finali quando la mappa si inizializza, quindi Leaflet calcola un'area
+            // visibile troppo piccola. Forziamo un ricalcolo a intervalli.
+            function forceResize(label) {
+                map.invalidateSize();
+                log('invalidateSize (' + label + ') - dimensioni mappa: ' + map.getSize().x + 'x' + map.getSize().y);
+            }
+            setTimeout(function () { forceResize('300ms'); }, 300);
+            setTimeout(function () { forceResize('800ms'); }, 800);
+            setTimeout(function () { forceResize('1500ms'); }, 1500);
+            window.addEventListener('resize', function () { forceResize('window-resize'); });
+            window.invalidateMapSize = function () { forceResize('kotlin'); };
 
             var radarLayers = [];
             var currentIndex = 0;
@@ -102,6 +116,7 @@
                 var frame = radarLayers[index];
                 frame.layer.addTo(map);
                 document.getElementById('frameTime').innerText = frameTimeLabel(frame.time);
+                log('▶ frame ' + (index + 1) + '/' + radarLayers.length + ' - ore ' + frameTimeLabel(frame.time));
             }
 
             function nextFrame() {
@@ -135,7 +150,7 @@
                         return;
                     }
                     radarLayers = frames.map(function (f) {
-                        return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.6, maxZoom: 12 }) };
+                        return { time: f.time, layer: L.tileLayer(f.url, { opacity: 0.75, maxZoom: 12, maxNativeZoom: 7 }) };
                     });
                     currentIndex = radarLayers.length - 1;
                     showFrame(currentIndex);
